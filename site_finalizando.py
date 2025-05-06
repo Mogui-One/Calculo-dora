@@ -22,7 +22,7 @@ with st.sidebar:
     st.markdown("### 🧭 Navegação")
     if st.button("🏠 Início"):
         st.session_state.pagina_atual = "home"
-    with st.expander("EXEMPLOS"):
+    with st.expander("🎥 EXEMPLOS"):
         if st.button("🎥 Bisseção"):
             st.session_state.pagina_atual = "ex_bissecao" 
         if st.button("🎥 Falsa posição"):
@@ -426,15 +426,16 @@ elif pagina == "equacoes_diferenciais":
 
 elif pagina == "ponto_fixo":
     import sympy as sp
-    st.subheader("🔁 Método do Ponto Fixo")
+    st.subheader("⮍ Método do Ponto Fixo")
 
     func_str = st.text_input("Digite a função f(x):", "x**2 - 3*x + 2")
-    g_str = st.text_input("Digite a função g(x) (rearranjada):", "(x**2 + 2)/3")
+    g_str = st.text_input("Digite a função g(x) (isole x):", "(x**2 + 2)/3")
 
     try:
         x = sp.symbols('x')
         f_expr = sp.sympify(func_str)
         g_expr = sp.sympify(g_str)
+        f = sp.lambdify(x, f_expr, 'numpy')
         g = sp.lambdify(x, g_expr, 'numpy')
 
         # Derivada de g(x)
@@ -461,24 +462,33 @@ elif pagina == "ponto_fixo":
 
             for i in range(max_iter):
                 x_novo = g(x_atual)
-                erro = abs(x_novo - x_atual)
-                iteracoes.append((i, x_atual, x_novo, erro))
-                if erro < tolerancia:
+                fx_n = f(x_novo)
+                erro_abs = abs(x_novo - x_atual)
+                erro_rel = abs((x_novo - x_atual) / x_novo) * 100 if x_novo != 0 else 0
+                iteracoes.append((i, x_atual, x_novo, fx_n, erro_abs, erro_rel))
+                if erro_abs < tolerancia:
                     break
                 x_atual = x_novo
 
             st.success(f"Aproximação final: {x_novo:.6f}")
 
             st.subheader("Iterações passo a passo")
-            for i, x_antigo, x_novo, erro in iteracoes:
+            for i, x_antigo, x_novo, fx_n, erro_abs, erro_rel in iteracoes:
                 col1, col2 = st.columns(2)
                 with col1:
                     fig, ax = plt.subplots()
                     x_vals = np.linspace(-10, 10, 400)
-                    y_vals = [g(v) for v in x_vals]
-                    ax.plot(x_vals, y_vals, label="g(x)", color='blue')
+                    y_f_vals = [f(v) for v in x_vals]
+                    y_g_vals = [g(v) for v in x_vals]
+                    ax.plot(x_vals, y_f_vals, label="f(x)", color='green')
+                    ax.plot(x_vals, y_g_vals, label="g(x)", color='blue')
                     ax.plot(x_vals, x_vals, '--', color='black', label="y = x")
-                    ax.scatter([x_antigo], [g(x_antigo)], color='red', zorder=5, label=f"x_{i}")
+
+                    # Reta vertical do eixo x até g(x_n)
+                    y_gxn = g(x_antigo)
+                    ax.plot([x_antigo, x_antigo], [0, y_gxn], color='red', linestyle='--', label='projeção')
+                    ax.scatter([x_antigo], [y_gxn], color='red', zorder=5, label=f"x_{{{i+1}}}")
+
                     ax.axhline(0, color='black', linewidth=0.5)
                     ax.axvline(0, color='black', linewidth=0.5)
                     ax.set_xlim(-10, 10)
@@ -492,9 +502,20 @@ elif pagina == "ponto_fixo":
 
                 with col2:
                     st.latex(rf"x_{{{i}}} = {x_antigo:.6f}")
-                    st.latex(rf"x_{{{i+1}}} = g(x_{{{i}}}) = {x_novo:.6f}")
-                    st.latex(rf"\text{{Erro}} = |x_{{{i+1}}} - x_{{{i}}}| = {erro:.6f}")
+                    st.latex(rf"g(x_{{{i}}}) = {x_novo:.6f}")
+                    st.latex(rf"f(x_{{{i+1}}}) = {fx_n:.6f}")
+                    st.latex(rf"\text{{Erro absoluto}} = {erro_abs:.6f}")
+                    st.latex(rf"\text{{Erro relativo}} = {erro_rel:.4f}\%")
 
+            st.subheader("📊 Tabela de Iterações")
+            st.dataframe({
+                "Iteração": [i[0] for i in iteracoes],
+                "x_n": [i[1] for i in iteracoes],
+                "g(x_n)": [i[2] for i in iteracoes],
+                "f(x_n)": [i[3] for i in iteracoes],
+                "Erro Absoluto": [i[4] for i in iteracoes],
+                "Erro Relativo (%)": [i[5] for i in iteracoes],
+            })
     except Exception as e:
         st.error(f"Erro ao interpretar a função: {str(e)}")
 
@@ -577,6 +598,19 @@ elif pagina == "bissecao":
                 except Exception as e:
                     st.error(f"Erro durante a execução do método: {str(e)}")
 
+                st.subheader("📊 Tabela de Iterações")
+                st.dataframe({
+                    "Iteração": [it[0] for it in iteracoes],
+                    "a": [it[1] for it in iteracoes],
+                    "b": [it[2] for it in iteracoes],
+                    "c": [it[3] for it in iteracoes],
+                    "f(a)": [it[4] for it in iteracoes],
+                    "f(b)": [it[5] for it in iteracoes],
+                    "f(c)": [it[6] for it in iteracoes],
+                    "Erro (|b - a|/2)": [it[7] for it in iteracoes],
+                })
+
+
         except Exception as e:
             st.error(f"Erro ao interpretar a função: {str(e)}")
 
@@ -585,7 +619,7 @@ elif pagina == "bissecao":
 elif pagina == "falsa_posicao":
     import imageio.v2 as imageio
 
-    st.subheader("🔍 Falsa Posição (Regula Falsi)")
+    st.subheader("🟰 Falsa Posição (Regula Falsi)")
 
     def criar_funcao(expr):
         def f(x):
@@ -597,22 +631,36 @@ elif pagina == "falsa_posicao":
     def falsa_posicao(f, a, b, tol=1e-6, max_iter=100):
         if f(a) * f(b) >= 0:
             raise ValueError("O intervalo [a, b] não contém uma mudança de sinal.")
+
         iteracoes = []
-        iter_count = 0
-        c = a
-        while abs(f(c)) > tol and iter_count < max_iter:
-            c = (a * f(b) - b * f(a)) / (f(b) - f(a))
-            erro = abs(f(c))
-            iteracoes.append((iter_count, a, b, c, f(a), f(b), f(c), erro))
-            if f(a) * f(c) < 0:
+        c_anterior = None
+
+        for i in range(max_iter):
+            fa = f(a)
+            fb = f(b)
+            c = (a * fb - b * fa) / (fb - fa)
+            fc = f(c)
+
+            if c_anterior is None:
+                erro_abs = None
+                erro_rel = None
+            else:
+                erro_abs = abs(c - c_anterior)
+                erro_rel = abs((c - c_anterior) / c) * 100 if c != 0 else None
+
+            iteracoes.append((i, a, b, c, fa, fb, fc, erro_abs, erro_rel))
+
+            if erro_abs is not None and erro_abs < tol:
+                break
+
+            if fa * fc < 0:
                 b = c
             else:
                 a = c
-            iter_count += 1
-        return c, iteracoes
 
-    def estimar_iteracoes_necessarias(a, b, tol):
-        return int(np.ceil(np.log2((b - a) / tol)))
+            c_anterior = c
+
+        return c, iteracoes
 
     expr = st.text_input("Digite a função f(x):", value="x**3 - x - 2")
 
@@ -620,71 +668,90 @@ elif pagina == "falsa_posicao":
         try:
             func = criar_funcao(expr)
 
-            st.markdown("### Visualização da função")
+            st.markdown("### Escolha do intervalo [a, b] e parâmetros")
+            a = st.number_input("Valor de a:", value=1.0)
+            b = st.number_input("Valor de b:", value=2.0)
+            tol = st.number_input("Tolerância:", value=1e-6, format="%.10f")
+            max_iter = st.number_input("Máximo de iterações:", value=50, step=1)
+
+            # Visualização da função f(x) com intervalo inicial
+            st.markdown("### Visualização da função f(x) e do intervalo [a, b]")
+
             x_vals = np.linspace(-10, 10, 1000)
             y_vals = [func(x) for x in x_vals]
 
             fig, ax = plt.subplots()
             ax.plot(x_vals, y_vals, label="f(x)", color='blue')
-            ax.axhline(0, color='black')
-            ax.axvline(0, color='black')
+            ax.axhline(0, color='black', linewidth=1)
+            ax.axvline(0, color='black', linewidth=1)
+
+            # Linhas verticais no intervalo inicial
+            ax.axvline(a, color='green', linestyle='--', label=f'a = {a}')
+            ax.axvline(b, color='red', linestyle='--', label=f'b = {b}')
+
             ax.set_xlim(-10, 10)
             ax.set_ylim(-10, 10)
             ax.set_xlabel("x")
             ax.set_ylabel("f(x)")
+            ax.set_title("Gráfico de f(x) e intervalo inicial")
             ax.grid(True)
             ax.legend()
             st.pyplot(fig)
 
-            st.markdown("### Escolha do intervalo [a, b] e parâmetros")
-            a = st.number_input("Valor de a:", value=1.0)
-            b = st.number_input("Valor de b:", value=2.0)
-            tol = st.number_input("Tolerância:", value=1e-6, format="%.10f")
 
-            if b <= a:
-                st.warning("Certifique-se de que b > a.")
-            else:
-                est = estimar_iteracoes_necessarias(a, b, tol)
-                st.write(f"Estimativa mínima de iterações: **{est}**")
-                max_iter = st.number_input("Máximo de iterações:", value=est, step=1)
+            if st.button("Executar Método da Falsa Posição"):
+                try:
+                    raiz, iteracoes = falsa_posicao(func, a, b, tol, max_iter)
+                    st.success(f"Raiz aproximada: {raiz:.10f}")
 
-                if st.button("Executar Método da Falsa Posição"):
-                    try:
-                        raiz, iteracoes = falsa_posicao(func, a, b, tol, max_iter)
-                        st.success(f"Raiz aproximada: {raiz:.10f}")
+                    st.markdown("### Iterações passo a passo")
+                    for i, a_i, b_i, c_i, fa, fb, fc, erro_abs, erro_rel in iteracoes:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            fig, ax = plt.subplots()
+                            x_vals = np.linspace(-10, 10, 1000)
+                            y_vals = [func(x) for x in x_vals]
+                            ax.plot(x_vals, y_vals, label="f(x)", color='blue')
+                            ax.axhline(0, color='black')
+                            ax.axvline(a_i, color='green', linestyle='--', label='a')
+                            ax.axvline(b_i, color='red', linestyle='--', label='b')
+                            ax.axvline(c_i, color='orange', linestyle='--', label='c')
+                            ax.plot([a_i, b_i], [fa, fb], 'r--', label='secante')
+                            ax.set_xlim(-10, 10)
+                            ax.set_ylim(-10, 10)
+                            ax.set_title(f"Iteração {i+1}")
+                            ax.grid(True)
+                            ax.legend()
+                            st.pyplot(fig)
+                        with col2:
+                            st.latex(rf"a_{{{i+1}}} = {a_i:.6f} \,\quad b_{{{i+1}}} = {b_i:.6f}")
+                            st.latex(rf"f(a_{{{i+1}}}) = {fa:.6f} \,\quad f(b_{{{i+1}}}) = {fb:.6f}")
+                            st.latex(rf"c_{{{i+1}}} = \frac{{a_{{{i+1}}} \cdot f(b) - b_{{{i+1}}} \cdot f(a)}}{{f(b) - f(a)}} = {c_i:.6f}")
+                            st.latex(rf"f(c_{{{i+1}}}) = {fc:.6f}")
+                            if erro_abs is not None:
+                                st.latex(rf"\text{{Erro absoluto}} = |c_n - c_{{n-1}}| = {erro_abs:.6f}")
+                            if erro_rel is not None:
+                                st.latex(rf"\text{{Erro relativo}} = {erro_rel:.4f}\%")
 
-                        st.markdown("### Iterações passo a passo")
-                        for i, (it, a_i, b_i, c_i, fa, fb, fc, erro) in enumerate(iteracoes):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                fig_it, ax_it = plt.subplots()
-                                ax_it.plot(x_vals, y_vals, label="f(x)", color='blue')
-                                ax_it.axhline(0, color='black')
-                                ax_it.axvline(a_i, color='green', linestyle='--', label=f'a (it. {i})')
-                                ax_it.axvline(b_i, color='red', linestyle='--', label=f'b (it. {i})')
-                                ax_it.plot([a_i, b_i], [fa, fb], 'r--', label='reta secante')
-                                ax_it.axvline(c_i, color='orange', linestyle='-.', label=f'c (it. {i})')
-                                ax_it.set_xlim(min(a_i, b_i) - 1, max(a_i, b_i) + 1)
-                                ax_it.set_ylim(min(fa, fb, fc) - 1, max(fa, fb, fc) + 1)
-                                ax_it.set_xlabel("x")
-                                ax_it.set_ylabel("f(x)")
-                                ax_it.grid(True)
-                                ax_it.legend()
-                                ax_it.set_title(f"Iteração {i + 1}")
-                                st.pyplot(fig_it)
+                    st.subheader("📊 Tabela de Iterações")
+                    st.dataframe({
+                        "Iteração": [i[0] for i in iteracoes],
+                        "a": [i[1] for i in iteracoes],
+                        "b": [i[2] for i in iteracoes],
+                        "c": [i[3] for i in iteracoes],
+                        "f(a)": [i[4] for i in iteracoes],
+                        "f(b)": [i[5] for i in iteracoes],
+                        "f(c)": [i[6] for i in iteracoes],
+                        "Erro Absoluto": [f"{i[7]:.6f}" if i[7] is not None else "—" for i in iteracoes],
+                        "Erro Relativo (%)": [f"{i[8]:.4f}" if i[8] is not None else "—" for i in iteracoes],
+                    })
 
-                            with col2:
-                                st.latex(rf"a_{{{i+1}}} = {a_i:.6f} \quad b_{{{i+1}}} = {b_i:.6f}")
-                                st.latex(rf"f(a_{{{i+1}}}) = {fa:.6f} \quad f(b_{{{i+1}}}) = {fb:.6f}")
-                                st.latex(rf"c_{{{i+1}}} = \frac{{a_{{{i+1}}}f(b_{{{i+1}}}) - b_{{{i+1}}}f(a_{{{i+1}}})}}{{f(b_{{{i+1}}}) - f(a_{{{i+1}}})}} = {c_i:.6f}")
-                                st.latex(rf"f(c_{{{i+1}}}) = {fc:.6f}")
-                                st.latex(rf"\text{{Erro}} = |f(c_{{{i+1}}})| = {erro:.6f}")
-
-                    except Exception as e:
-                        st.error(f"Erro durante o cálculo: {str(e)}")
+                except Exception as e:
+                    st.error(f"Erro durante a execução do método: {str(e)}")
 
         except Exception as e:
             st.error(f"Erro ao interpretar a função: {str(e)}")
+
 
 
 #C.N - MÉTODO GRAFICO=========================================================================================
@@ -940,12 +1007,14 @@ elif pagina == "newton":
                 imagens.append(imageio.imread(buf))
                 plt.close(fig)
 
-            if imagens:
-                st.subheader("Animação do processo:")
-                gif_path = "/tmp/newton_iteracoes.gif"
-                imageio.mimsave(gif_path, imagens, fps=1)
-                with open(gif_path, "rb") as f:
-                    gif_bytes = f.read()
-                st.image(gif_bytes, format="gif")
-
-################################## EXEMPLOS ##############################################################
+                # Adição da tabela ao final
+            st.subheader("📊 Tabela de Iterações")
+            dados_tabela = {
+                "Iteração": list(range(1, len(iteracoes)+1)),
+                "x_n": [it['x_n'] for it in iteracoes],
+                "f(x_n)": [it['f(x_n)'] for it in iteracoes],
+                "f'(x_n)": [it["f'(x_n)"] for it in iteracoes],
+                "x_{n+1}": [it['x_{n+1}'] for it in iteracoes],
+                "Erro Absoluto": [abs(it['x_{n+1}'] - it['x_n']) for it in iteracoes]
+            }
+            st.dataframe(dados_tabela)                
