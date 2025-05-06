@@ -898,6 +898,19 @@ elif pagina == "secante":
                     gif_bytes = f.read()
                 st.image(gif_bytes)
 
+            # TABELA DE ITERAÇÕES
+            st.subheader("📊 Tabela de Iterações")
+            st.dataframe({
+                "Iteração": [i for i, *_ in iteracoes],
+                "x_n-1": [x0_i for _, x0_i, *_ in iteracoes],
+                "x_n": [x1_i for _, _, x1_i, *_ in iteracoes],
+                "x_n+1": [x2_i for _, _, _, x2_i, *_ in iteracoes],
+                "f(x_n-1)": [fx0 for _, _, _, _, fx0, *_ in iteracoes],
+                "f(x_n)": [fx1 for _, _, _, _, _, fx1, *_ in iteracoes],
+                "Erro Absoluto": [erro for *_, erro in iteracoes]
+            })
+
+
     except Exception as e:
         st.error(f"Erro ao processar a função: {str(e)}")
 
