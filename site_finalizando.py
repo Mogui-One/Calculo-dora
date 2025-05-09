@@ -428,33 +428,46 @@ elif pagina == "ponto_fixo":
     import sympy as sp
     st.subheader("⮍ Método do Ponto Fixo")
 
+    casas_decimais = st.slider("Número de casas decimais para exibição", 2, 10, 4)
+
     func_str = st.text_input("Digite a função f(x):", "x**2 - 3*x + 2")
-    g_str = st.text_input("Digite a função g(x) (isole x):", "(x**2 + 2)/3")
+    x = sp.symbols('x')
+    f_expr = sp.sympify(func_str)
+
+    if st.button("🔄 Gerar g(x) automaticamente"):
+        g_expr_auto = x - f_expr
+        st.session_state.g_expr_sugerido = str(g_expr_auto)
+
+    g_default = st.session_state.get("g_expr_sugerido", "(x**2 + 2)/3")
+    g_str = st.text_input("Digite a função g(x) (isole x):", g_default)
 
     try:
-        x = sp.symbols('x')
-        f_expr = sp.sympify(func_str)
         g_expr = sp.sympify(g_str)
         f = sp.lambdify(x, f_expr, 'numpy')
         g = sp.lambdify(x, g_expr, 'numpy')
-
-        # Derivada de g(x)
         g_prime_expr = sp.diff(g_expr, x)
         g_prime = sp.lambdify(x, g_prime_expr, 'numpy')
 
         x0 = st.number_input("Valor inicial x₀:", value=1.0)
+        a = st.number_input("Intervalo de teste: limite inferior (a):", value=x0 - 1.0)
+        b = st.number_input("Intervalo de teste: limite superior (b):", value=x0 + 1.0)
         tolerancia = st.number_input("Tolerância:", value=0.0001, format="%.5f")
         max_iter = st.number_input("Número máximo de iterações:", value=20, step=1)
 
-        # Avaliar |g'(x₀)|
-        try:
-            derivada_inicial = abs(g_prime(x0))
-            if derivada_inicial < 1:
-                st.success(f"Condição de convergência favorável: |g'(x₀)| = {derivada_inicial:.4f} < 1")
-            else:
-                st.warning(f"⚠️ Atenção: |g'(x₀)| = {derivada_inicial:.4f} ≥ 1, pode não convergir!")
-        except:
-            st.warning("⚠️ Não foi possível calcular g'(x₀).")
+        verifica_funcional = sp.simplify(g_expr - x + f_expr)
+        if verifica_funcional != 0:
+            st.warning("⚠️ A função g(x) pode não estar corretamente relacionada com f(x) = 0.")
+
+        x_vals = np.linspace(a, b, 500)
+        derivadas = np.abs(g_prime(x_vals))
+        max_derivada = np.max(derivadas)
+        if max_derivada < 1:
+            st.success(f"Convergência provável: Máx |g'(x)| = {max_derivada:.4f} < 1")
+        else:
+            st.warning(f"⚠️ Convergência não garantida: Máx |g'(x)| = {max_derivada:.4f} ≥ 1")
+
+        if abs(g(x0) - x0) > 0.01:
+            st.warning("⚠️ A função g(x) pode não ser adequada: g(x₀) está longe de x₀.")
 
         if st.button("Executar Método do Ponto Fixo"):
             iteracoes = []
@@ -463,59 +476,106 @@ elif pagina == "ponto_fixo":
             for i in range(max_iter):
                 x_novo = g(x_atual)
                 fx_n = f(x_novo)
-                erro_abs = abs(x_novo - x_atual)
-                erro_rel = abs((x_novo - x_atual) / x_novo) * 100 if x_novo != 0 else 0
-                iteracoes.append((i, x_atual, x_novo, fx_n, erro_abs, erro_rel))
-                if erro_abs < tolerancia:
+                erro_rel = abs((x_novo - x_atual) / x_novo) * 100 if i > 0 and x_novo != 0 else None
+                iteracoes.append((i, x_atual, x_novo, fx_n, erro_rel))
+                if erro_rel is not None and erro_rel < tolerancia:
                     break
                 x_atual = x_novo
 
-            st.success(f"Aproximação final: {x_novo:.6f}")
+            st.success(f"Aproximação final: {x_novo:.{casas_decimais}f}")
 
             st.subheader("Iterações passo a passo")
-            for i, x_antigo, x_novo, fx_n, erro_abs, erro_rel in iteracoes:
+            for i, x_antigo, x_novo, fx_n, erro_rel in iteracoes:
                 col1, col2 = st.columns(2)
                 with col1:
-                    fig, ax = plt.subplots()
-                    x_vals = np.linspace(-10, 10, 400)
-                    y_f_vals = [f(v) for v in x_vals]
-                    y_g_vals = [g(v) for v in x_vals]
-                    ax.plot(x_vals, y_f_vals, label="f(x)", color='green')
-                    ax.plot(x_vals, y_g_vals, label="g(x)", color='blue')
-                    ax.plot(x_vals, x_vals, '--', color='black', label="y = x")
+                    try:
+                        x_vals = np.linspace(x0 - 5, x0 + 5, 400)
 
-                    # Reta vertical do eixo x até g(x_n)
-                    y_gxn = g(x_antigo)
-                    ax.plot([x_antigo, x_antigo], [0, y_gxn], color='red', linestyle='--', label='projeção')
-                    ax.scatter([x_antigo], [y_gxn], color='red', zorder=5, label=f"x_{{{i+1}}}")
+                        y_f_vals = []
+                        y_g_vals = []
+                        for v in x_vals:
+                            try:
+                                f_val = f(v)
+                            except:
+                                f_val = np.nan
 
-                    ax.axhline(0, color='black', linewidth=0.5)
-                    ax.axvline(0, color='black', linewidth=0.5)
-                    ax.set_xlim(-10, 10)
-                    ax.set_ylim(-10, 10)
-                    ax.set_xlabel("x")
-                    ax.set_ylabel("y")
-                    ax.grid(True)
-                    ax.legend()
-                    ax.set_title(f"Iteração {i+1}")
-                    st.pyplot(fig)
+                            try:
+                                try:
+                                    with np.errstate(over='ignore', invalid='ignore'):
+                                        f_val = f(v)
+                                except:
+                                    f_val = np.nan
+
+                                try:
+                                    with np.errstate(over='ignore', invalid='ignore'):
+                                        g_val = g(v)
+                                except:
+                                    g_val = np.nan
+
+                            except:
+                                g_val = np.nan
+
+                            if np.isfinite(f_val):
+                                y_f_vals.append(f_val)
+                            else:
+                                y_f_vals.append(np.nan)
+
+                            if np.isfinite(g_val):
+                                y_g_vals.append(g_val)
+                            else:
+                                y_g_vals.append(np.nan)
+
+
+                        fig, ax = plt.subplots()
+                        ax.plot(x_vals, y_f_vals, label="f(x)", color='green')
+                        ax.plot(x_vals, y_g_vals, label="g(x)", color='blue')
+                        ax.plot(x_vals, x_vals, '--', color='black', label="y = x")
+
+                        try:
+                            y_gxn = g(x_antigo)
+                            if np.isfinite(y_gxn):
+                                ax.plot([x_antigo, x_antigo], [0, y_gxn], color='red', linestyle='--', label='projeção')
+                                ax.scatter([x_antigo], [y_gxn], color='red', zorder=5, label=f"x_{{{i+1}}}")
+                        except Exception as e:
+                            st.warning(f"Não foi possível plotar g(x_antigo): {e}")
+
+                        ax.axhline(0, color='black', linewidth=0.5)
+                        ax.axvline(0, color='black', linewidth=0.5)
+                        ax.set_xlim(-10, 10)
+                        ax.set_ylim(-10, 10)
+                        ax.set_xlabel("x")
+                        ax.set_ylabel("y")
+                        ax.grid(True)
+                        ax.legend()
+                        ax.set_title(f"Iteração {i+1}")
+                        st.pyplot(fig)
+
+                    except Exception as e:
+                        st.error(f"Erro ao construir o gráfico: {e}")
 
                 with col2:
-                    st.latex(rf"x_{{{i}}} = {x_antigo:.6f}")
-                    st.latex(rf"g(x_{{{i}}}) = {x_novo:.6f}")
-                    st.latex(rf"f(x_{{{i+1}}}) = {fx_n:.6f}")
-                    st.latex(rf"\text{{Erro absoluto}} = {erro_abs:.6f}")
-                    st.latex(rf"\text{{Erro relativo}} = {erro_rel:.4f}\%")
+                    st.latex(rf"x_{{{i}}} = {x_antigo:.{casas_decimais}f}")
+                    st.latex(rf"g(x_{{{i}}}) = {x_novo:.{casas_decimais}f}")
+                    st.latex(rf"f(x_{{{i+1}}}) = {fx_n:.{casas_decimais}f}")
+                    if erro_rel is not None:
+                        st.latex(
+                            rf"\text{{Erro relativo}} = \left| \frac{{x_{{{i+1}}} - x_{{{i}}}}}{{x_{{{i+1}}}}} \right| \times 100 = {erro_rel:.{casas_decimais}f}\%"
+                        )
+                    else:
+                        st.latex("—")
 
             st.subheader("📊 Tabela de Iterações")
             st.dataframe({
-                "Iteração": [i[0] for i in iteracoes],
-                "x_n": [i[1] for i in iteracoes],
-                "g(x_n)": [i[2] for i in iteracoes],
-                "f(x_n)": [i[3] for i in iteracoes],
-                "Erro Absoluto": [i[4] for i in iteracoes],
-                "Erro Relativo (%)": [i[5] for i in iteracoes],
+                "Iteração": [i for i, *_ in iteracoes],
+                "x_n": [x_n for _, x_n, *_ in iteracoes],
+                "g(x_n)": [gx for _, _, gx, *_ in iteracoes],
+                "f(x_n)": [fx for *_, fx, _ in iteracoes],
+                "Erro Relativo (%)": [
+                    f"{erro:.{casas_decimais}f}" if erro is not None else "—"
+                    for *_, erro in iteracoes
+                ]
             })
+
     except Exception as e:
         st.error(f"Erro ao interpretar a função: {str(e)}")
 
@@ -526,6 +586,8 @@ elif pagina == "bissecao":
     import imageio.v2 as imageio
 
     st.subheader("🔍 Bisseção")
+    
+    casas_decimais = st.slider("Número de casas decimais para exibição", 2, 10, 4)
 
     def criar_funcao(expr):
         def f(x):
@@ -543,7 +605,13 @@ elif pagina == "bissecao":
         while (b - a) / 2 > tol and iter_count < max_iter:
             c = (a + b) / 2
             erro = abs(b - a) / 2
-            iteracoes.append((iter_count, a, b, c, f(a), f(b), f(c), erro))
+            if len(iteracoes) > 0:
+                c_anterior = iteracoes[-1][3]  # o último c da lista
+                erro_rel = abs((c - c_anterior) / c) * 100 if c != 0 else None
+            else:
+                erro_rel = None
+
+            iteracoes.append((iter_count, a, b, c, f(a), f(b), f(c), erro, erro_rel))
             if abs(f(c)) < tol:
                 break
             if f(c) * f(a) < 0:
@@ -571,7 +639,7 @@ elif pagina == "bissecao":
                     st.success(f"Raiz aproximada: {raiz:.10f}")
 
                     st.markdown("### Iterações passo a passo")
-                    for i, (it, a_i, b_i, c_i, fa, fb, fc, erro) in enumerate(iteracoes):
+                    for i, (it, a_i, b_i, c_i, fa, fb, fc, erro, erro_rel) in enumerate(iteracoes):
                         col1, col2 = st.columns(2)
                         with col1:
                             fig, ax = plt.subplots()
@@ -593,7 +661,10 @@ elif pagina == "bissecao":
                             st.latex(rf"f(a_{{{i+1}}}) = {fa:.6f} \,\quad f(b_{{{i+1}}}) = {fb:.6f}")
                             st.latex(rf"c_{{{i+1}}} = \frac{{a_{{{i+1}}} + b_{{{i+1}}}}}{{2}} = {c_i:.6f}")
                             st.latex(rf"f(c_{{{i+1}}}) = {fc:.6f}")
-                            st.latex(rf"\text{{Erro}} = \frac{{b - a}}{{2}} = {erro:.6f}")
+                            if erro_rel is not None:
+                                st.latex(rf"\text{{Erro relativo}} = \left| \frac{{c_{{{i+1}}} - c_{{{i}}}}}{{c_{{{i+1}}}}} \right| \times 100 = {erro_rel:.{casas_decimais}f}\%")
+                            else:
+                                st.latex("-----")
 
                 except Exception as e:
                     st.error(f"Erro durante a execução do método: {str(e)}")
@@ -607,7 +678,9 @@ elif pagina == "bissecao":
                     "f(a)": [it[4] for it in iteracoes],
                     "f(b)": [it[5] for it in iteracoes],
                     "f(c)": [it[6] for it in iteracoes],
-                    "Erro (|b - a|/2)": [it[7] for it in iteracoes],
+                    "Erro relativo (%)": [
+                            f"{it[8]:.{casas_decimais}f}" if it[8] is not None else "—" for it in iteracoes
+                        ]                    
                 })
 
 
@@ -620,6 +693,8 @@ elif pagina == "falsa_posicao":
     import imageio.v2 as imageio
 
     st.subheader("🟰 Falsa Posição (Regula Falsi)")
+
+    casas_decimais = st.slider("Número de casas decimais para exibição", 2, 10, 4)
 
     def criar_funcao(expr):
         def f(x):
@@ -642,15 +717,13 @@ elif pagina == "falsa_posicao":
             fc = f(c)
 
             if c_anterior is None:
-                erro_abs = None
                 erro_rel = None
             else:
-                erro_abs = abs(c - c_anterior)
                 erro_rel = abs((c - c_anterior) / c) * 100 if c != 0 else None
 
-            iteracoes.append((i, a, b, c, fa, fb, fc, erro_abs, erro_rel))
+            iteracoes.append((i, a, b, c, fa, fb, fc, erro_rel))
 
-            if erro_abs is not None and erro_abs < tol:
+            if erro_rel is not None and erro_rel < tol:
                 break
 
             if fa * fc < 0:
@@ -674,9 +747,6 @@ elif pagina == "falsa_posicao":
             tol = st.number_input("Tolerância:", value=1e-6, format="%.10f")
             max_iter = st.number_input("Máximo de iterações:", value=50, step=1)
 
-            # Visualização da função f(x) com intervalo inicial
-            st.markdown("### Visualização da função f(x) e do intervalo [a, b]")
-
             x_vals = np.linspace(-10, 10, 1000)
             y_vals = [func(x) for x in x_vals]
 
@@ -684,11 +754,8 @@ elif pagina == "falsa_posicao":
             ax.plot(x_vals, y_vals, label="f(x)", color='blue')
             ax.axhline(0, color='black', linewidth=1)
             ax.axvline(0, color='black', linewidth=1)
-
-            # Linhas verticais no intervalo inicial
             ax.axvline(a, color='green', linestyle='--', label=f'a = {a}')
             ax.axvline(b, color='red', linestyle='--', label=f'b = {b}')
-
             ax.set_xlim(-10, 10)
             ax.set_ylim(-10, 10)
             ax.set_xlabel("x")
@@ -698,14 +765,13 @@ elif pagina == "falsa_posicao":
             ax.legend()
             st.pyplot(fig)
 
-
             if st.button("Executar Método da Falsa Posição"):
                 try:
                     raiz, iteracoes = falsa_posicao(func, a, b, tol, max_iter)
                     st.success(f"Raiz aproximada: {raiz:.10f}")
 
                     st.markdown("### Iterações passo a passo")
-                    for i, a_i, b_i, c_i, fa, fb, fc, erro_abs, erro_rel in iteracoes:
+                    for i, a_i, b_i, c_i, fa, fb, fc, erro_rel in iteracoes:
                         col1, col2 = st.columns(2)
                         with col1:
                             fig, ax = plt.subplots()
@@ -726,12 +792,12 @@ elif pagina == "falsa_posicao":
                         with col2:
                             st.latex(rf"a_{{{i+1}}} = {a_i:.6f} \,\quad b_{{{i+1}}} = {b_i:.6f}")
                             st.latex(rf"f(a_{{{i+1}}}) = {fa:.6f} \,\quad f(b_{{{i+1}}}) = {fb:.6f}")
-                            st.latex(rf"c_{{{i+1}}} = \frac{{a_{{{i+1}}} \cdot f(b) - b_{{{i+1}}} \cdot f(a)}}{{f(b) - f(a)}} = {c_i:.6f}")
+                            st.latex(rf"c_{{{i+1}}} = \frac{{a f(b) - b f(a)}}{{f(b) - f(a)}} = {c_i:.6f}")
                             st.latex(rf"f(c_{{{i+1}}}) = {fc:.6f}")
-                            if erro_abs is not None:
-                                st.latex(rf"\text{{Erro absoluto}} = |c_n - c_{{n-1}}| = {erro_abs:.6f}")
                             if erro_rel is not None:
-                                st.latex(rf"\text{{Erro relativo}} = {erro_rel:.4f}\%")
+                                st.latex(rf"\text{{Erro relativo}} = \left| \frac{{c_{{{i+1}}} - c_{{{i}}}}}{{c_{{{i+1}}}}} \right| \times 100 = {erro_rel:.{casas_decimais}f}\%")
+                            else:
+                                st.latex("-----")
 
                     st.subheader("📊 Tabela de Iterações")
                     st.dataframe({
@@ -742,8 +808,9 @@ elif pagina == "falsa_posicao":
                         "f(a)": [i[4] for i in iteracoes],
                         "f(b)": [i[5] for i in iteracoes],
                         "f(c)": [i[6] for i in iteracoes],
-                        "Erro Absoluto": [f"{i[7]:.6f}" if i[7] is not None else "—" for i in iteracoes],
-                        "Erro Relativo (%)": [f"{i[8]:.4f}" if i[8] is not None else "—" for i in iteracoes],
+                        "Erro relativo (%)": [
+                            f"{i[7]:.{casas_decimais}f}" if i[7] is not None else "—" for i in iteracoes
+                        ]
                     })
 
                 except Exception as e:
@@ -751,6 +818,7 @@ elif pagina == "falsa_posicao":
 
         except Exception as e:
             st.error(f"Erro ao interpretar a função: {str(e)}")
+
 
 
 
@@ -818,7 +886,10 @@ elif pagina == "secante":
     import sympy as sp
     import io
     import imageio.v2 as imageio
+
     st.subheader("⚙️ Método da Secante")
+
+    casas_decimais = st.slider("Número de casas decimais para exibição", 2, 10, 4)
 
     func_str = st.text_input("Digite a função f(x):", "x**3 - x - 2")
 
@@ -839,23 +910,25 @@ elif pagina == "secante":
             for i in range(max_iter):
                 f_x0 = f(x0)
                 f_x1 = f(x1)
+
                 if f_x1 - f_x0 == 0:
                     st.error(f"Divisão por zero na iteração {i}. Interrompendo.")
                     break
 
                 x2 = x1 - f_x1 * (x1 - x0) / (f_x1 - f_x0)
-                erro = abs(x2 - x1)
-                iteracoes.append((i, x0, x1, x2, f_x0, f_x1, erro))
+                erro_rel = abs((x2 - x1) / x2) * 100 if i > 0 and x2 != 0 else None
 
-                if erro < tolerancia:
+                iteracoes.append((i, x0, x1, x2, f_x0, f_x1, erro_rel))
+
+                if erro_rel is not None and erro_rel < tolerancia:
                     break
 
                 x0, x1 = x1, x2
 
-            st.success(f"Aproximação final da raiz: {x2:.6f}")
+            st.success(f"Aproximação final da raiz: {x2:.{casas_decimais}f}")
             st.subheader("Iterações passo a passo")
 
-            for i, x0_i, x1_i, x2_i, fx0, fx1, erro in iteracoes:
+            for i, x0_i, x1_i, x2_i, fx0, fx1, erro_rel in iteracoes:
                 col1, col2 = st.columns(2)
 
                 with col1:
@@ -865,11 +938,8 @@ elif pagina == "secante":
                     ax.plot(x_vals, y_vals, label="f(x)", color='blue')
                     ax.axhline(0, color='black', linewidth=0.5)
                     ax.axvline(0, color='black', linewidth=0.5)
-
-                    # Reta secante
                     ax.plot([x0_i, x1_i], [fx0, fx1], 'r--', label='Reta Secante')
                     ax.plot(x2_i, 0, 'ro', label=f"x_{i+2}")
-
                     ax.set_xlim(-10, 10)
                     ax.set_ylim(-10, 10)
                     ax.grid(True)
@@ -878,12 +948,17 @@ elif pagina == "secante":
                     st.pyplot(fig)
 
                 with col2:
-                    st.latex(rf"x_{{{i}}} = {x0_i:.6f}, \quad x_{{{i+1}}} = {x1_i:.6f}")
-                    st.latex(rf"f(x_{{{i}}}) = {fx0:.6f}, \quad f(x_{{{i+1}}}) = {fx1:.6f}")
-                    st.latex(rf"x_{{{i+2}}} = x_{{{i+1}}} - \frac{{f(x_{{{i+1}}})(x_{{{i+1}}} - x_{{{i}}})}}{{f(x_{{{i+1}}}) - f(x_{{{i}}})}} = {x2_i:.6f}")
-                    st.latex(rf"\text{{Erro}} = |x_{{{i+2}}} - x_{{{i+1}}}| = {erro:.6f}")
+                    st.latex(rf"x_{{{i}}} = {x0_i:.{casas_decimais}f}, \quad x_{{{i+1}}} = {x1_i:.{casas_decimais}f}")
+                    st.latex(rf"f(x_{{{i}}}) = {fx0:.{casas_decimais}f}, \quad f(x_{{{i+1}}}) = {fx1:.{casas_decimais}f}")
+                    st.latex(rf"x_{{{i+2}}} = x_{{{i+1}}} - \frac{{f(x_{{{i+1}}})(x_{{{i+1}}} - x_{{{i}}})}}{{f(x_{{{i+1}}}) - f(x_{{{i}}})}} = {x2_i:.{casas_decimais}f}")
+                    if erro_rel is not None:
+                        st.latex(
+                            rf"\text{{Erro relativo}} = \left| \frac{{x_{{{i+2}}} - x_{{{i+1}}}}}{{x_{{{i+2}}}}} \right| \times 100 = {erro_rel:.{casas_decimais}f}\%"
+                        )
+                    else:
+                        st.latex("—")
 
-                # salvar imagem para GIF
+                # salvar imagem para gif
                 buf = io.BytesIO()
                 fig.savefig(buf, format='png')
                 buf.seek(0)
@@ -907,13 +982,14 @@ elif pagina == "secante":
                 "x_n+1": [x2_i for _, _, _, x2_i, *_ in iteracoes],
                 "f(x_n-1)": [fx0 for _, _, _, _, fx0, *_ in iteracoes],
                 "f(x_n)": [fx1 for _, _, _, _, _, fx1, *_ in iteracoes],
-                "Erro Absoluto": [erro for *_, erro in iteracoes]
+                "Erro Relativo (%)": [
+                    f"{erro:.{casas_decimais}f}" if erro is not None else "—"
+                    for *_, erro in iteracoes
+                ]
             })
-
 
     except Exception as e:
         st.error(f"Erro ao processar a função: {str(e)}")
-
 
 
 #C.N - MÉTODO NEWTON==========================================================================================
@@ -924,18 +1000,21 @@ elif pagina == "newton":
 
     st.subheader("⚙️ Método de Newton - Visualização Iterativa")
 
+    casas_decimais = st.slider("Número de casas decimais para exibição", 2, 10, 4)
+
     funcao = st.text_input("Digite a função f(x):", value="x**2 - 2")
 
     if funcao:
         x = symbols('x')
-        f = sympify(funcao)
-        f_prime = diff(f, x)
-        funcao_lambda = lambdify(x, f, 'numpy')
-        derivada_lambda = lambdify(x, f_prime, 'numpy')
+        f_expr = sympify(funcao)
+        f_prime_expr = diff(f_expr, x)
+
+        f = lambdify(x, f_expr, 'numpy')
+        f_prime = lambdify(x, f_prime_expr, 'numpy')
 
         x_vals = np.linspace(-10, 10, 400)
         try:
-            y_vals = funcao_lambda(x_vals)
+            y_vals = f(x_vals)
             fig, ax = plt.subplots()
             ax.plot(x_vals, y_vals, label=f'f(x) = {funcao}')
             ax.axhline(0, color='black', linewidth=0.5)
@@ -958,61 +1037,70 @@ elif pagina == "newton":
             x_atual = x0
 
             for i in range(max_iter):
-                f_x = funcao_lambda(x_atual)
-                f_deriv = derivada_lambda(x_atual)
+                f_x = f(x_atual)
+                f_deriv = f_prime(x_atual)
+
                 if f_deriv == 0:
                     st.error(f"Derivada nula em x = {x_atual}. Método interrompido.")
                     break
+
                 x_novo = x_atual - f_x / f_deriv
+                erro_rel = abs((x_novo - x_atual) / x_novo) * 100 if i > 0 and x_novo != 0 else None
+
                 iteracoes.append({
+                    'i': i,
                     'x_n': x_atual,
                     'f(x_n)': f_x,
                     "f'(x_n)": f_deriv,
-                    'x_{n+1}': x_novo
+                    'x_{n+1}': x_novo,
+                    'erro_rel': erro_rel
                 })
-                if abs(f_x) < tolerancia:
+
+                if erro_rel is not None and erro_rel < tolerancia:
                     break
+
                 x_atual = x_novo
 
             st.subheader("Iterações passo a passo")
             imagens = []
 
-            for i, it in enumerate(iteracoes):
+            for it in iteracoes:
+                i = it['i']
                 x_n = it['x_n']
-                y_n = it['f(x_n)']
+                fx = it['f(x_n)']
+                dfx = it["f'(x_n)"]
                 x_n1 = it['x_{n+1}']
-                y_n1 = funcao_lambda(x_n1)
-                derivada = it["f'(x_n)"]
-                erro = abs(x_n1 - x_n)
-
+                erro = it['erro_rel']
                 col1, col2 = st.columns(2)
 
                 with col1:
                     fig, ax = plt.subplots()
-                    ax.plot(x_vals, funcao_lambda(x_vals), label='f(x)', color='blue')
-                    reta_tangente = lambda x_val: derivada * (x_val - x_n) + y_n
-                    ax.plot(x_vals, reta_tangente(x_vals), 'g--', label='Tangente')
-                    ax.plot(x_n, y_n, 'ro', label=f'x{i+1} = {x_n:.4f}')
-                    ax.plot(x_n1, 0, 'bo', label=f'x{i+2} = {x_n1:.4f}')
-                    ax.plot([x_n1, x_n1], [0, y_n1], 'k--', linewidth=1)
+                    ax.plot(x_vals, f(x_vals), label='f(x)', color='blue')
+                    tangente = lambda x_val: dfx * (x_val - x_n) + fx
+                    ax.plot(x_vals, tangente(x_vals), 'g--', label='Tangente')
+                    ax.plot(x_n, fx, 'ro', label=f'x{i+1}')
+                    ax.plot(x_n1, 0, 'bo', label=f'x{i+2}')
+                    ax.plot([x_n1, x_n1], [0, f(x_n1)], 'k--', linewidth=1)
                     ax.axhline(0, color='black', linewidth=0.5)
                     ax.axvline(0, color='black', linewidth=0.5)
                     ax.set_xlim(-10, 10)
                     ax.set_ylim(-10, 10)
                     ax.set_title(f"Iteração {i + 1}")
                     ax.legend()
+                    ax.grid(True)
                     st.pyplot(fig)
 
                 with col2:
-                    st.latex(rf"f(x_{{{i+1}}}) = {y_n:.6f}")
-                    st.latex(rf"f'(x_{{{i+1}}}) = {derivada:.6f}")
-                    st.latex(rf"x_{{{i+2}}} = x_{{{i+1}}} - \frac{{f(x_{{{i+1}}})}}{{f'(x_{{{i+1}}})}} = {x_n:.6f} - \frac{{{y_n:.6f}}}{{{derivada:.6f}}} = {x_n1:.6f}")
-                    st.latex(rf"|x_{{{i+2}}} - x_{{{i+1}}}| = {erro:.6f}")
-
-                if abs(y_n1) < tolerancia:
-                    st.success(f"Convergência alcançada! f(x) ≈ 0 em x = {x_n1:.6f}")
-                else:
-                    st.warning(f"Ainda não convergiu: f(x) = {y_n1:.6f}")
+                    st.latex(rf"x_{{{i}}} = {x_n:.{casas_decimais}f}")
+                    st.latex(rf"f(x_{{{i}}}) = {fx:.{casas_decimais}f}")
+                    st.latex(rf"f'(x_{{{i}}}) = {dfx:.{casas_decimais}f}")
+                    st.latex(rf"x_{{{i+1}}} = x_{{{i}}} - \frac{{f(x_{{{i}}})}}{{f'(x_{{{i}}})}} = {x_n1:.{casas_decimais}f}")
+                    if erro is not None:
+                        st.latex(
+                            rf"\text{{Erro relativo}} = \left| \frac{{x_{{{i+1}}} - x_{{{i}}}}}{{x_{{{i+1}}}}} \right| \times 100 = {erro:.{casas_decimais}f}\%"
+                        )
+                    else:
+                        st.latex("—")
 
                 buf = io.BytesIO()
                 fig.savefig(buf, format='png')
@@ -1020,14 +1108,23 @@ elif pagina == "newton":
                 imagens.append(imageio.imread(buf))
                 plt.close(fig)
 
-                # Adição da tabela ao final
+            if imagens:
+                st.subheader("Animação do processo:")
+                gif_path = "/tmp/newton_iteracoes.gif"
+                imageio.mimsave(gif_path, imagens, fps=1)
+                with open(gif_path, "rb") as f:
+                    gif_bytes = f.read()
+                st.image(gif_bytes)
+
             st.subheader("📊 Tabela de Iterações")
-            dados_tabela = {
-                "Iteração": list(range(1, len(iteracoes)+1)),
+            st.dataframe({
+                "Iteração": [it['i'] for it in iteracoes],
                 "x_n": [it['x_n'] for it in iteracoes],
                 "f(x_n)": [it['f(x_n)'] for it in iteracoes],
                 "f'(x_n)": [it["f'(x_n)"] for it in iteracoes],
                 "x_{n+1}": [it['x_{n+1}'] for it in iteracoes],
-                "Erro Absoluto": [abs(it['x_{n+1}'] - it['x_n']) for it in iteracoes]
-            }
-            st.dataframe(dados_tabela)                
+                "Erro Relativo (%)": [
+                    f"{it['erro_rel']:.{casas_decimais}f}" if it['erro_rel'] is not None else "—"
+                    for it in iteracoes
+                ]
+            })
