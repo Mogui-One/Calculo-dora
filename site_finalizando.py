@@ -54,7 +54,9 @@ with st.sidebar:
             st.session_state.pagina_atual = "newton"
         if st.button("⚙️ Secante"):
             st.session_state.pagina_atual = "secante"
-
+    with st.expander("Cálculo Numérico 2 bloco"):
+        if st.button("Jacobi-Richardson"):
+            st.session_state.pagina_atual = "jacobi"
         
 # Conteúdo principal == métodos =========================================================================
 
@@ -1128,3 +1130,135 @@ elif pagina == "newton":
                     for it in iteracoes
                 ]
             })
+
+
+#C.N - MÉTODO JACOBI==========================================================================================
+elif pagina == "jacobi":
+    st.subheader("🧶 Método de Jacobi-Richardson")
+    st.markdown("""
+        <style>
+        div[data-testid="stTextInput"] {
+            width: 50px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        div[data-testid="stTextInput"] input {
+            width: 100% !important;
+            text-align: center;
+            font-size: 14px;
+            padding: 2px 4px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("Escolha o tamanho do sistema e preencha os coeficientes da matriz A e do vetor b:")
+    n = st.number_input("Tamanho do sistema (n x n):", min_value=2, max_value=10, value=3)
+
+    st.markdown("### Sistema linear (matriz A | vetor b):")
+    A = np.zeros((n, n))
+    b = np.zeros(n)
+
+    with st.container():
+        col_central = st.columns([0.25, 0.5, 0.25])[1]
+        with col_central:
+            for i in range(n):
+                linha = st.columns(n + 2, gap="small") 
+                for j in range(n):
+                    with linha[j]:
+                        val = st.text_input(f"A{i}{j}", value="0", key=f"A_{i}_{j}", label_visibility="collapsed")
+                        try:
+                            A[i][j] = float(val.replace(",", "."))
+                        except:
+                            A[i][j] = 0.0
+                with linha[n]:
+                    st.markdown("**|**", unsafe_allow_html=True)
+                with linha[n + 1]:
+                    val_b = st.text_input(f"b{i}", value="0", key=f"b_{i}", label_visibility="collapsed")
+                    try:
+                        b[i] = float(val_b.replace(",", "."))
+                    except:
+                        b[i] = 0.0
+
+    tol = st.number_input("Tolerância:", value=0.0000001, format="%.12f")
+    max_iter = st.number_input("Número máximo de iterações:", value=100, step=1)
+    casas = st.slider("Casas decimais:", 2, 10, 4)
+
+    if st.button("Executar Método de Jacobi"):
+        try:
+            dominante = True
+            for i in range(n):
+                diag = abs(A[i][i])
+                soma_outros = np.sum(np.abs(A[i])) - diag
+                if diag <= soma_outros:
+                    dominante = False
+                    break
+
+            if dominante:
+                st.success("✅ A matriz A é diagonal dominante. O método deve convergir.")
+            else:
+                st.warning("⚠️ A matriz A NÃO é diagonal dominante. O método pode não convergir.")
+
+            D = np.diag(A)
+            R = A - np.diagflat(D)
+            x = np.zeros_like(b)
+            iteracoes = []
+
+            st.subheader("🔍 Passo a passo das iterações")
+            for k in range(1, max_iter + 1):
+                x_novo = (b - np.dot(R, x)) / D
+                erro_iter = np.linalg.norm(x_novo - x, ord=np.inf)
+                erro_relativo = erro_iter / (np.linalg.norm(x_novo, ord=np.inf) + 1e-12)
+
+                iteracoes.append({
+                    "Iteracao": k,
+                    "x": x_novo.copy(),
+                    "Erro It": erro_iter,
+                    "Relativo": erro_relativo
+                })
+
+                with st.expander(f"🔹 Iteração {k}"):
+                    for i in range(n):
+                        soma = " + ".join([f"{A[i][j]:.2f} ⋅ {x[j]:.{casas}f}" for j in range(n) if j != i])
+                        st.latex(
+                            rf"x_{{{i+1}}}^{{({k})}} = \frac{{1}}{{{A[i][i]:.2f}}} ( {b[i]:.2f} - ( {soma} ) ) = {x_novo[i]:.{casas}f}"
+                        )
+                    st.latex(rf"\|x^{{({k})}} - x^{{({k-1})}}\|_\infty = {erro_iter:.{casas}f}")
+                    st.latex(rf"\text{{Erro relativo}} = \frac{{\|x^{{({k})}} - x^{{({k-1})}}\|_\infty}}{{\|x^{{({k})}}\|_\infty}} = {erro_relativo:.{casas}f}")
+
+                if erro_relativo < tol:
+                    break
+                x = x_novo
+
+            st.success(f"Solução aproximada após {len(iteracoes)} iterações:")
+            for i, val in enumerate(x_novo):
+                st.latex(f"x_{{{i+1}}} = {val:.{casas}f}")
+
+            st.subheader("📊 Tabela de Iterações")
+            tabela = {
+                "Iteração": [it["Iteracao"] for it in iteracoes],
+                **{f"x{i+1}": [round(it["x"][i], casas) for it in iteracoes] for i in range(n)},
+                "Erro It": [round(it["Erro It"], casas) for it in iteracoes],
+                "Relativo": [round(it["Relativo"], casas) for it in iteracoes]
+            }
+            st.dataframe(tabela)
+
+            st.subheader("🧪 Verificação da Solução")
+            b_calc = np.dot(A, x_novo)
+            for i in range(n):
+                st.latex(
+                    f"Ax_{{{i+1}}} = {b_calc[i]:.{casas}f} \\Rightarrow\\ b_{{{i+1}}} = {b[i]:.{casas}f} \\Rightarrow\\ |erro| = {abs(b[i] - b_calc[i]):.{casas}f}"
+                )
+
+        except Exception as e:
+            st.error(f"Erro: {str(e)}")
+
+        try:
+            x_exata = np.linalg.solve(A, b)
+            st.subheader("🌟 Comparação com solução exata (np.linalg.solve):")
+            for i in range(n):
+                erro_abs = abs(x_exata[i] - x_novo[i])
+                st.latex(
+                    rf"x_{{{i+1}}} \approx {x_novo[i]:.{casas}f} \;\; \text{{vs}} \;\; x_{{{i+1}}}^* = {x_exata[i]:.{casas}f} \Rightarrow \left| \text{{erro}} \right| = {erro_abs:.{casas}f}"
+                )
+        except:
+            st.info("Não foi possível calcular a solução exata com numpy (sistema talvez mal definido).")
