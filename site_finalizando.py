@@ -112,27 +112,25 @@ with st.sidebar:
 # CONTEÚDO DAS PÁGINAS
 # ==================================================================================================
 pagina = st.session_state.pagina_atual
-# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL) =================================================
 
-# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL) =================================================
+# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL PARA DEPLOY) =================================================
 if pagina == "home":
 
-    # INJEÇÃO DE CSS PARA FORÇAR O LAYOUT WIDE APENAS NESTA PÁGINA
-    # Este CSS é mais "agressivo" e remove as restrições de layout do Streamlit.
     st.markdown("""
         <style>
-            /* Remove o padding do container principal do Streamlit */
+            /* Força o container principal do Streamlit a ocupar a largura total */
             .main .block-container {
-                padding-top: 0rem;
-                padding-bottom: 0rem;
-                padding-left: 0rem;
-                padding-right: 0rem;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
-            /* Força o iframe a ocupar a tela inteira */
+            /* Força o iframe a ocupar a tela inteira, independentemente do container */
             iframe {
-                width: 100%;
-                min-height: 95vh; /* Usa a altura da tela como referência */
+                width: 100vw; /* 100% da largura da tela */
+                min-height: 100vh; /* 100% da altura da tela */
                 border: none;
+                /* Truque para centralizar o iframe que ocupa a largura toda */
+                margin-left: calc(-50vw + 50%);
             }
         </style>
         """, unsafe_allow_html=True)
@@ -288,7 +286,7 @@ if pagina == "home":
                     <ul><li>✏️ Derivadas</li><li>📐 Integrais</li><li>📏 Limites</li></ul>
                 </div>
                 <div class="card">
-                    <h3>📙 Cálculo 2</h3>
+                    <h3>📙 Cálculo 2 (EM BREVE)</h3>
                     <ul><li>📊 Séries de Taylor</li><li>🔁 Integrais Duplas</li><li>🌀 Equações Diferenciais</li></ul>
                 </div>
                 <div class="card">
@@ -360,8 +358,7 @@ if pagina == "home":
     </html>
     """
     
-    # Renderiza o componente HTML. A altura aqui é menos crítica, pois o CSS está controlando o layout.
-    st.components.v1.html(html_code, height=900, scrolling=False)
+    st.components.v1.html(html_code, scrolling=False)
 
 
 # EXEMPLO - BISSEÇÃO =================================================================================
