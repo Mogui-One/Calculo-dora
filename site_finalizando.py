@@ -1,32 +1,80 @@
 # calculadora_streamlit.py
 
-#bibliotecas-----------------------------------------------------------------------------------------
+# ==================================================================================================
+# BIBLIOTECAS
+# ==================================================================================================
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
-from sympy import symbols
+from sympy import symbols, sympify, diff, integrate, limit, oo, latex, lambdify, Rational
+from matplotlib.patches import Rectangle
+import io
+import imageio.v2 as imageio
 
-#titulo da pagina------------------------------------------------------------------------------------
+# ==================================================================================================
+# CONFIGURAÇÃO DA PÁGINA E ESTADO DA SESSÃO
+# ==================================================================================================
 st.set_page_config(layout="wide")
-st.markdown("""
-    <h1 style='text-align: center;'>🧠 Cálculo (Dora)</h1>
-    <hr style='border: 1px solid #ccc;' />
-""", unsafe_allow_html=True)
 
-#Menu lateral----------------------------------------------------------------------------------------
+# Inicializa as variáveis de estado da sessão se elas não existirem
 if 'pagina_atual' not in st.session_state:
     st.session_state.pagina_atual = 'home'
+if 'limite_eixo' not in st.session_state:
+    st.session_state.limite_eixo = 10
+# Adiciona o tema ao estado da sessão, com 'Escuro' como padrão
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'Escuro'
 
+# ==================================================================================================
+# CABEÇALHO COM CONFIGURAÇÕES GLOBAIS
+# ==================================================================================================
+# Layout em colunas para o título e o botão de configurações
+col_titulo, col_config = st.columns([0.9, 0.1])
+
+with col_titulo:
+    # NOME DO SITE ATUALIZADO
+    st.markdown("""
+        <h1 style='text-align: left;'>🧠 Cálculo (Dora)</h1>
+    """, unsafe_allow_html=True)
+
+with col_config:
+    # O Popover cria o menu de configurações que aparece ao clicar no ícone
+    with st.popover("⚙️"):
+        st.markdown("##### Configurações Gerais")
+        # Slider para o intervalo dos eixos
+        st.session_state.limite_eixo = st.slider(
+            "Intervalo dos eixos do gráfico:",
+            min_value=1,
+            max_value=50,
+            value=st.session_state.limite_eixo,
+            help="Define o intervalo de visualização para os eixos X e Y, de -Valor a +Valor."
+        )
+        # Seletor de tema claro/escuro
+        st.session_state.theme = st.radio(
+            "Tema do Site:",
+            ('Escuro', 'Claro'),
+            key='theme_selector',
+            index=0 if st.session_state.theme == 'Escuro' else 1
+        )
+
+st.markdown("<hr style='border: 1px solid #ccc; margin-top: -10px;' />", unsafe_allow_html=True)
+
+
+# ==================================================================================================
+# MENU LATERAL (SIDEBAR)
+# ==================================================================================================
 with st.sidebar:
     st.markdown("### 🧭 Navegação")
     if st.button("🏠 Início"):
         st.session_state.pagina_atual = "home"
+    
     with st.expander("🎥 EXEMPLOS"):
         if st.button("🎥 Bisseção"):
             st.session_state.pagina_atual = "ex_bissecao" 
         if st.button("🎥 Falsa posição"):
             st.session_state.pagina_atual = "ex_falsaposicao"           
+    
     with st.expander("📘 Cálculo 1"):
         if st.button("✏️ Derivadas"):
             st.session_state.pagina_atual = "derivadas"
@@ -34,6 +82,7 @@ with st.sidebar:
             st.session_state.pagina_atual = "integrais"
         if st.button("📏 Limites"):
             st.session_state.pagina_atual = "limites"
+            
     with st.expander("📙 Cálculo 2"):
         if st.button("📊 Séries de Taylor"):
             st.session_state.pagina_atual = "taylor"
@@ -41,6 +90,7 @@ with st.sidebar:
             st.session_state.pagina_atual = "integrais_duplas"
         if st.button("🌀 Equações Diferenciais"):
             st.session_state.pagina_atual = "equacoes_diferenciais"
+            
     with st.expander("📗 Cálculo Numérico"):
         if st.button("🔍 Método Gráfico"):
             st.session_state.pagina_atual = "metodo_grafico"
@@ -54,351 +104,642 @@ with st.sidebar:
             st.session_state.pagina_atual = "newton"
         if st.button("⚙️ Secante"):
             st.session_state.pagina_atual = "secante"
-    with st.expander("Cálculo Numérico 2 bloco"):
         if st.button("Jacobi-Richardson"):
             st.session_state.pagina_atual = "jacobi"
+            
         
-# Conteúdo principal == métodos =========================================================================
-
+# ==================================================================================================
+# CONTEÚDO DAS PÁGINAS
+# ==================================================================================================
 pagina = st.session_state.pagina_atual
 
-#HOME=====================================================================================================
-
+# PÁGINA HOME (VERSÃO COM ANIMAÇÃO E SELETOR DE TEMA) =================================================
 if pagina == "home":
-    st.subheader("🏠 Bem-vindo ao Cálculo (Dora)!")
-    st.markdown("---")
 
-    st.info("""
-    Este site foi desenvolvido para ser um **ambiente completo de apoio** no estudo de:
-    """)
+    # Determina as classes e cores com base no tema selecionado no estado da sessão
+    theme_mode = st.session_state.get('theme', 'Escuro')
+    theme_class = "light-mode" if theme_mode == 'Claro' else ''
+    particle_color_js = 'rgba(0, 0, 0, 0.08)' if theme_mode == 'Claro' else 'rgba(255, 255, 255, 0.1)'
 
-    st.success("""
-    📘 **Cálculo 1**:
-    - Derivadas
-    - Integrais
-    - Limites
-    """)
+    # O f-string é usado para injetar a classe de tema e a cor da partícula no HTML
+    html_code = f"""
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Explorador de Cálculo - Início</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 
-    st.success("""
-    📙 **Cálculo 2**:
-    - Séries de Taylor
-    - Integrais Duplas
-    - Equações Diferenciais
-    """)
+            :root {{
+                --bg-color: #121212;
+                --text-color: #e0e0e0;
+                --subtle-text-color: #a0a0a0;
+                --header-color: #ffffff;
+                --card-bg: rgba(255, 255, 255, 0.05);
+                --card-border: rgba(255, 255, 255, 0.1);
+                --card-shadow: rgba(0, 0, 0, 0.4);
+                --card-list-border: rgba(255, 255, 255, 0.08);
+                --card-title-color: #4dabf7;
+                --footer-color: #666;
+            }}
 
-    st.success("""
-    📗 **Cálculo Numérico**:
-    - Método Gráfico
-    - Método da Bisseção
-    - Método da Falsa Posição
-    - Método do Ponto Fixo
-    - Método de Newton
-    - Método da Secante
-    """)
+            .light-mode {{
+                --bg-color: #f0f2f5;
+                --text-color: #1c1e21;
+                --subtle-text-color: #606770;
+                --header-color: #000000;
+                --card-bg: rgba(255, 255, 255, 0.8);
+                --card-border: rgba(0, 0, 0, 0.1);
+                --card-shadow: rgba(0, 0, 0, 0.1);
+                --card-list-border: rgba(0, 0, 0, 0.1);
+                --card-title-color: #1877f2;
+                --footer-color: #888;
+            }}
 
-    st.markdown("---")
-    st.caption("🚀 Projeto desenvolvido por **Lucas Matias**.")
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
-################################## EXEMPLOS ###############################################################
+            body {{
+                font-family: 'Poppins', sans-serif;
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                overflow: hidden;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                text-align: center;
+            }}
 
-#EX - BISSEÇÃO==============================================================================================
+            #background-canvas {{
+                position: fixed; top: 0; left: 0;
+                width: 100%; height: 100%; z-index: -1;
+            }}
 
+            .main-container {{
+                max-width: 900px; width: 90%; padding: 40px 20px;
+                z-index: 1; display: flex; flex-direction: column;
+                align-items: center; gap: 40px;
+            }}
+
+            header {{ margin-bottom: 20px; }}
+
+            header p {{
+                font-size: 1.2rem; color: var(--subtle-text-color); margin-top: 20px; max-width: 600px;
+            }}
+            
+            /* Animação de digitação */
+            .typing-title {{
+                font-size: 3.5rem;
+                font-weight: 700;
+                color: var(--header-color);
+                text-shadow: 0 0 15px rgba(100, 100, 255, 0.3);
+                overflow: hidden;
+                border-right: .12em solid var(--card-title-color);
+                white-space: nowrap;
+                margin: 0 auto;
+                letter-spacing: .1em;
+                animation: typing 3s steps(20, end), blink-caret .75s step-end infinite;
+            }}
+
+            @keyframes typing {{
+              from {{ width: 0 }}
+              to {{ width: 100% }}
+            }}
+
+            @keyframes blink-caret {{
+              from, to {{ border-color: transparent }}
+              50% {{ border-color: var(--card-title-color); }}
+            }}
+            
+            .cards-container {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 25px; width: 100%;
+            }}
+
+            .card {{
+                background: var(--card-bg);
+                backdrop-filter: blur(10px);
+                border: 1px solid var(--card-border);
+                border-radius: 15px; padding: 25px;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }}
+
+            .card:hover {{
+                transform: translateY(-10px);
+                box-shadow: 0 10px 30px var(--card-shadow);
+            }}
+
+            .card h3 {{
+                font-size: 1.5rem; margin-bottom: 15px; color: var(--card-title-color);
+            }}
+            
+            .card ul {{
+                list-style: none; text-align: left; padding-left: 0;
+            }}
+
+            .card ul li {{
+                padding: 8px 0; border-bottom: 1px solid var(--card-list-border);
+            }}
+
+            .card ul li:last-child {{ border-bottom: none; }}
+            
+            footer {{
+                margin-top: 30px; color: var(--footer-color); font-size: 0.9rem;
+            }}
+        </style>
+    </head>
+    <body class="{theme_class}">
+        <canvas id="background-canvas"></canvas>
+
+        <div class="main-container">
+            <header>
+                <h1 class="typing-title">🧠 (Dora)</h1>
+                <p>Sua plataforma interativa para explorar o universo do Cálculo. Navegue pelos tópicos no menu lateral.</p>
+            </header>
+
+            <div class="cards-container">
+                <div class="card">
+                    <h3>📘 Cálculo 1</h3>
+                    <ul><li>✏️ Derivadas</li><li>📐 Integrais</li><li>📏 Limites</li></ul>
+                </div>
+                <div class="card">
+                    <h3>📙 Cálculo 2 (EM BREVE)</h3>
+                    <ul><li>📊 Séries de Taylor</li><li>🔁 Integrais Duplas</li><li>🌀 Equações Diferenciais</li></ul>
+                </div>
+                <div class="card">
+                    <h3>📗 Cálculo Numérico</h3>
+                    <ul><li>🔍 Métodos de Raízes</li><li>⚙️ Interpolação</li><li>📈 Ajuste de Curvas</li></ul>
+                </div>
+            </div>
+
+            <footer>
+                <p>🚀 Projeto desenvolvido por Lucas Matias.</p>
+            </footer>
+        </div>
+
+        <script>
+            const canvas = document.getElementById('background-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const symbols = ['∫', '∂', '∑', '∞', 'α', 'β', 'π', 'lim', '√', 'ƒ(x)'];
+            const particles = [];
+            const numberOfParticles = 40;
+
+            class Particle {{
+                constructor() {{
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 15 + 10;
+                    this.speedX = Math.random() * 1 - 0.5;
+                    this.speedY = Math.random() * 1 - 0.5;
+                    this.symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                    this.color = '{particle_color_js}'; // A cor é injetada pelo Python
+                }}
+                update() {{
+                    this.x += this.speedX; this.y += this.speedY;
+                    if (this.x > canvas.width + 20) this.x = -20;
+                    if (this.x < -20) this.x = canvas.width + 20;
+                    if (this.y > canvas.height + 20) this.y = -20;
+                    if (this.y < -20) this.y = canvas.height + 20;
+                }}
+                draw() {{
+                    ctx.fillStyle = this.color;
+                    ctx.font = this.size + 'px Poppins';
+                    ctx.fillText(this.symbol, this.x, this.y);
+                }}
+            }}
+
+            function init() {{
+                particles.length = 0; // Limpa as partículas antigas ao reiniciar
+                for (let i = 0; i < numberOfParticles; i++) {{ particles.push(new Particle()); }}
+            }}
+
+            function animate() {{
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (let i = 0; i < particles.length; i++) {{ particles[i].update(); particles[i].draw(); }}
+                requestAnimationFrame(animate);
+            }}
+
+            window.addEventListener('resize', () => {{
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                init(); // Reinicia as partículas para se adaptarem ao novo tamanho
+            }});
+            
+            init();
+            animate();
+        </script>
+    </body>
+    </html>
+    """
+    
+    # Renderiza o componente HTML no Streamlit
+    st.components.v1.html(html_code, height=900, scrolling=True)
+
+# EXEMPLO - BISSEÇÃO =================================================================================
 elif pagina == "ex_bissecao":
     st.subheader("📊 Exemplo: Método da Bisseção")
     st.info("Este vídeo mostra a aplicação gráfica do método da bisseção.")
-
     st.markdown("### 🎬 Assista ao vídeo:")
-    with open("BissecaoDividido.mp4", "rb") as f:
-        video_bytes = f.read()
-        st.video(video_bytes)
+    try:
+        with open("BissecaoDividido.mp4", "rb") as f:
+            video_bytes = f.read()
+            st.video(video_bytes)
+    except FileNotFoundError:
+        st.error("Arquivo de vídeo 'BissecaoDividido.mp4' não encontrado. Coloque o vídeo na mesma pasta do script.")
 
-
-#EX -FALSA POSIÇÃO=========================================================================================
-
+# EXEMPLO - FALSA POSIÇÃO ============================================================================
 elif pagina == "ex_falsaposicao":
     st.subheader("📊 Exemplo: Método da Falsa Posição")
     st.info("Este vídeo mostra a aplicação gráfica do método da falsa posição.")
-
     st.markdown("### 🎬 Assista ao vídeo:")
-    with open("FalsaPosicaoDividido.mp4", "rb") as f:
-        video_bytes = f.read()
-        st.video(video_bytes)
+    try:
+        with open("FalsaPosicaoDividido.mp4", "rb") as f:
+            video_bytes = f.read()
+            st.video(video_bytes)
+    except FileNotFoundError:
+        st.error("Arquivo de vídeo 'FalsaPosicaoDividido.mp4' não encontrado. Coloque o vídeo na mesma pasta do script.")
 
-
-################################## CALCULO 1 ##############################################################
-
-#C1 - DERIVADA==============================================================================================
-
+# C1 - DERIVADAS (com configuração global de eixos) ==================================================
 elif pagina == "derivadas":
-    import sympy as sp
+    st.subheader("✏️ Relação Gráfica entre uma Função e sua Derivada")
+    
+    # Lê o valor do limite do eixo a partir do estado da sessão (definido no popover global)
+    limite_eixo = st.session_state.limite_eixo
 
-    st.subheader("✏️ Calculadora de Derivadas")
-
-    func_str = st.text_input("Digite a função f(x):", "x**2")
+    # Input da função
+    func_str = st.text_input("Digite a função f(x):", "sin(x)")
 
     try:
+        # --- Cálculos com Sympy ---
         x = sp.symbols('x')
         f_expr = sp.sympify(func_str)
-        f = sp.lambdify(x, f_expr, 'numpy')
         df_expr = sp.diff(f_expr, x)
         df_expr_simplified = sp.simplify(df_expr)
-        df = sp.lambdify(x, df_expr, 'numpy')
 
-        st.success(f"A derivada da função $f(x) = {func_str}$ é:")
+        # Converte as expressões para funções numéricas
+        f_numeric = sp.lambdify(x, f_expr, 'numpy')
+        df_numeric = sp.lambdify(x, df_expr_simplified, 'numpy')
+
+        # --- Exibição dos Resultados ---
+        st.markdown("---")
+        st.success(f"A derivada da função $f(x) = {sp.latex(f_expr)}$ é:")
         st.latex(r"f'(x) = " + sp.latex(df_expr_simplified))
+        st.markdown("---")
 
-        x0 = st.slider("Escolha o ponto x₀:", -5.0, 5.0, 0.0, step=0.1)
+        # --- Seção Interativa para Análise em um Ponto ---
+        analisar_ponto = st.toggle("Analisar em um ponto específico?", value=True)
+        x0 = None
 
-        f_x0 = f(x0)
-        df_x0 = df(x0)
+        if analisar_ponto:
+            # O slider do ponto de análise agora respeita o limite do eixo
+            valor_default_slider = 1.5 if 1.5 < limite_eixo else float(limite_eixo/2)
+            x0 = st.slider("Escolha o ponto de análise $x_0$:", 
+                           float(-limite_eixo), 
+                           float(limite_eixo), 
+                           valor_default_slider, 
+                           step=0.1)
 
-        x_vals = np.linspace(-5, 5, 400)
-        y_vals = f(x_vals)
-        df_vals = df(x_vals)
+        # --- Criação do Gráfico ---
+        x_vals = np.linspace(-limite_eixo, limite_eixo, 1000)
+        y_vals = np.array([f_numeric(val) if np.isfinite(f_numeric(val)) else np.nan for val in x_vals])
+        df_vals = np.array([df_numeric(val) if np.isfinite(df_numeric(val)) else np.nan for val in x_vals])
 
-        tangent_line = df_x0 * (x_vals - x0) + f_x0
+        fig, ax = plt.subplots(figsize=(8, 8))
 
-        col1, col2 = st.columns(2)
-        with col1:
-            fig, ax = plt.subplots()
-            ax.plot(x_vals, y_vals, label="f(x)", color='blue')
-            ax.plot(x_vals, df_vals, label="f'(x)", color='green', linestyle='dashed')
-            ax.plot(x_vals, tangent_line, label="Reta Tangente", color='red', linestyle='dotted')
-            ax.scatter([x0], [f_x0], color='black', zorder=3, label="Ponto de Tangência")
-            ax.axhline(0, color='black', linewidth=0.5)
-            ax.axvline(0, color='black', linewidth=0.5)
-            ax.set_xlabel("x")
-            ax.set_ylabel("y")
-            ax.legend()
-            ax.grid(True)
-            st.pyplot(fig)
+        # Plot da função original e da derivada
+        ax.plot(x_vals, y_vals, label="$f(x)$ (Função Original)", color='blue', linewidth=2)
+        ax.plot(x_vals, df_vals, label="$f'(x)$ (A Derivada)", color='red', linestyle='--', linewidth=2)
 
-        with col2:
-            st.markdown("### 📄 Valores no ponto escolhido")
-            st.latex(r"f(x_0) = " + f"{f_x0:.4f}")
-            st.latex(r"f'(x_0) = " + f"{df_x0:.4f}")
+        # --- Elementos visuais da análise no ponto ---
+        if analisar_ponto and x0 is not None:
+            y0 = f_numeric(x0)
+            df_at_x0 = df_numeric(x0)
+            
+            if np.isfinite(y0) and np.isfinite(df_at_x0):
+                tangent_line = df_at_x0 * (x_vals - x0) + y0
+                ax.plot(x_vals, tangent_line, label=f"Reta Tangente em x={x0:.1f}", color='green', linestyle=':', linewidth=2.5)
+                ax.scatter([x0], [y0], color='blue', s=100, zorder=5, edgecolors='black', label=f'Ponto em f(x): ({x0:.1f}, {y0:.2f})')
+                ax.scatter([x0], [df_at_x0], color='red', s=100, zorder=5, edgecolors='black', label=f"Valor de f'(x): {df_at_x0:.2f}")
+                ax.plot([x0, x0], [y0, df_at_x0], color='black', linestyle='-.', linewidth=1.2)
+        
+        # Configurações do gráfico
+        ax.axhline(0, color='black', linewidth=0.8, linestyle='-')
+        ax.axvline(0, color='black', linewidth=0.8, linestyle='-')
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_title("Gráfico Comparativo de $f(x)$ e $f'(x)$")
+        ax.legend(loc='upper left')
+        ax.grid(True, which='both', linestyle=':', linewidth=0.5)
+        
+        ax.set_xlim(-limite_eixo, limite_eixo)
+        ax.set_ylim(-limite_eixo, limite_eixo)
+        ax.set_aspect('equal', adjustable='box')
+
+        st.pyplot(fig)
+
+        # --- Exibição dos valores calculados ---
+        if analisar_ponto and x0 is not None:
+            y0_val = f_numeric(x0)
+            df_val = df_numeric(x0)
+            if np.isfinite(y0_val) and np.isfinite(df_val):
+                st.markdown("### Análise no Ponto $x_0$")
+                col1, col2 = st.columns(2)
+                col1.metric(label=f"Valor da função, $f({x0:.2f})$", value=f"{y0_val:.4f}")
+                col2.metric(label=f"Valor da derivada, $f'({x0:.2f})$", value=f"{df_val:.4f}")
+                st.info(f"Observe que a inclinação da reta tangente verde é exatamente o valor da derivada: **{df_val:.4f}**.")
+            else:
+                st.warning(f"A função ou sua derivada não está definida ou é infinita no ponto $x_0 = {x0:.2f}$.")
+
+        # --- Guia Didático Geral ---
+        st.markdown("### Como interpretar o gráfico?")
+        st.info("""
+        - **Curva Azul ($f(x)$):** Sua função original.
+        - **Curva Vermelha ($f'(x)$):** Representa a inclinação da curva azul em cada ponto.
+        
+        **Relações importantes:**
+        1. Onde a **curva azul sobe**, a **vermelha é positiva**.
+        2. Onde a **curva azul desce**, a **vermelha é negativa**.
+        3. Em um pico ou vale da **curva azul**, a **vermelha cruza o zero**.
+        """)
 
     except Exception as e:
-        st.error(f"Erro ao interpretar a função: {str(e)}")
+        st.error(f"Houve um erro ao interpretar a sua função. Verifique a sintaxe. (Ex: use 'x**2' para $x^2$). Erro: {str(e)}")
 
 
-#C1 - INTEGRAL==============================================================================================
-
+# C1 - INTEGRAIS (VERSÃO REVISADA E CORRIGIDA) =================================================================
 elif pagina == "integrais":
-    import sympy as sp
-    from sympy import sympify, lambdify, integrate, Rational
-    from matplotlib.patches import Rectangle
+    # Importa as classes necessárias para desenhar as formas
+    from matplotlib.patches import Rectangle, Polygon
 
-    st.subheader("📐 Aproximação de Integrais com Retângulos")
+    st.subheader("📐 Visualizando a Integral Definida (Soma de Riemann)")
+    
+    # Lê o valor do limite do eixo a partir do estado da sessão
+    limite_eixo = st.session_state.limite_eixo
 
-    user_input = st.text_input("Digite a função f(x):", "x^2")
+    # --- Entradas do Usuário ---
+    func_str = st.text_input("Digite a função f(x):", "4 - x**2")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        # Garante que os limites de integração respeitem os limites do gráfico
+        a = st.number_input("Limite inferior de integração (a):", 
+                              min_value=float(-limite_eixo), 
+                              max_value=float(limite_eixo), 
+                              value=0.0)
+    with col2:
+        b = st.number_input("Limite superior de integração (b):", 
+                              min_value=float(-limite_eixo), 
+                              max_value=float(limite_eixo), 
+                              value=2.0)
+
+    method = st.selectbox(
+        "Escolha o método de aproximação:",
+        ("Ponto Esquerdo", "Ponto Direito", "Ponto Médio", "Trapézio"),
+        help="Define como a altura de cada subdivisão é calculada."
+    )
+    
+    n = st.slider("Número de subdivisões (n):", 1, 200, 10, help="Quanto mais subdivisões, mais precisa a aproximação.")
 
     try:
+        # --- Cálculos com Sympy ---
         x = sp.symbols('x')
-        func_sympy = sympify(user_input)
-        func = lambdify('x', func_sympy, 'numpy')
+        func_sympy = sp.sympify(func_str)
+        func_numeric = sp.lambdify('x', func_sympy, 'numpy')
 
-        a = st.number_input("Limite inferior (a):", value=0)
-        b = st.number_input("Limite superior (b):", value=5)
+        # --- Criação do Gráfico ---
+        fig, ax = plt.subplots(figsize=(8, 8))
+        
+        # Plot da função no intervalo do gráfico global
+        x_graph = np.linspace(-limite_eixo, limite_eixo, 1000)
+        y_graph = func_numeric(x_graph)
+        ax.plot(x_graph, y_graph, label="f(x)", color="blue", linewidth=2)
 
-        if 'show_integral_graph' not in st.session_state:
-            st.session_state.show_integral_graph = False
-        if 'n_rects' not in st.session_state:
-            st.session_state.n_rects = 10
+        # Preenche a área exata sob a curva no intervalo [a, b]
+        x_fill = np.linspace(a, b, 200)
+        y_fill = func_numeric(x_fill)
+        ax.fill_between(x_fill, y_fill, where=(y_fill > 0), color='skyblue', alpha=0.5, label="Área exata (positiva)")
+        ax.fill_between(x_fill, y_fill, where=(y_fill < 0), color='salmon', alpha=0.5, label="Área exata (negativa)")
 
-        if st.button("Calcular Integral"):
-            st.session_state.show_integral_graph = True
+        # --- Lógica de aproximação e plot das formas ---
+        area_aproximada = 0
+        if n > 0 and b > a:
+            dx = (b - a) / n
+            for i in range(n):
+                x_i = a + i * dx
+                x_i_plus_1 = x_i + dx
+                
+                if method == "Ponto Esquerdo":
+                    height = func_numeric(x_i)
+                    shape = Rectangle((x_i, 0), dx, height, edgecolor="black", facecolor="orange", alpha=0.7)
+                    area_aproximada += height * dx
+                elif method == "Ponto Direito":
+                    height = func_numeric(x_i_plus_1)
+                    shape = Rectangle((x_i, 0), dx, height, edgecolor="black", facecolor="orange", alpha=0.7)
+                    area_aproximada += height * dx
+                elif method == "Ponto Médio":
+                    height = func_numeric(x_i + dx/2)
+                    shape = Rectangle((x_i, 0), dx, height, edgecolor="black", facecolor="orange", alpha=0.7)
+                    area_aproximada += height * dx
+                elif method == "Trapézio":
+                    y_i = func_numeric(x_i)
+                    y_i_plus_1 = func_numeric(x_i_plus_1)
+                    # Agora o Polygon está definido corretamente
+                    shape = Polygon([[x_i, 0], [x_i_plus_1, 0], [x_i_plus_1, y_i_plus_1], [x_i, y_i]], edgecolor="black", facecolor="orange", alpha=0.7)
+                    area_aproximada += (y_i + y_i_plus_1) / 2 * dx
+                
+                ax.add_patch(shape)
 
-        if st.session_state.show_integral_graph:
-            n = st.slider("Número de retângulos:", 1, 100, st.session_state.n_rects)
-            st.session_state.n_rects = n
+        # Configurações do gráfico
+        ax.axhline(0, color='black', linewidth=0.8)
+        ax.axvline(0, color='black', linewidth=0.8)
+        ax.set_title(f"Aproximação por '{method}' com n={n}")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.grid(True, which='both', linestyle=':', linewidth=0.5)
+        
+        # Aplicando configuração global de eixos
+        ax.set_xlim(-limite_eixo, limite_eixo)
+        ax.set_ylim(-limite_eixo, limite_eixo)
+        ax.set_aspect('equal', adjustable='box')
+        ax.legend()
+        st.pyplot(fig)
 
-            def plot_function_and_rectangles(func, a, b, n):
-                x_vals = np.linspace(a, b, 500)
-                y_vals = func(x_vals)
+        # --- Exibição dos Resultados ---
+        st.markdown("### Resultados")
+        col_res1, col_res2 = st.columns(2)
+        
+        col_res1.metric(label=f"Área Aproximada ({method})", value=f"{area_aproximada:.6f}")
+        
+        try:
+            integral_exata = sp.integrate(func_sympy, (x, a, b)).evalf()
+            col_res2.metric(label="Área Exata (Integral)", value=f"{integral_exata:.6f}", delta=f"{(area_aproximada - integral_exata):.6f}", delta_color="inverse")
+        except Exception:
+            col_res2.info("Não foi possível calcular a integral exata.")
 
-                fig, ax = plt.subplots(1, 2, figsize=(14, 6))
+        # --- Guia Didático ---
+        st.markdown("### Como interpretar o gráfico?")
+        st.info("""
+        A integral definida de $f(x)$ de $a$ até $b$ representa a **área líquida** sob a curva.
 
-                # Função original
-                ax[0].plot(x_vals, y_vals, label="f(x)", color="blue")
-                ax[0].fill_between(x_vals, y_vals, color='skyblue', alpha=0.5)
-                ax[0].set_title("Função e área sob a curva")
-                ax[0].set_xlabel("x")
-                ax[0].set_ylabel("f(x)")
-                ax[0].grid(True)
-                ax[0].legend()
-
-                # Aproximação com retângulos
-                if n > 0:
-                    dx = (b - a) / n
-                    for i in range(n):
-                        x0 = a + i * dx
-                        x_mid = x0 + dx/2
-                        y0 = func(x_mid)
-                        ax[1].add_patch(Rectangle((x0, 0), dx, y0, edgecolor="black", facecolor="orange", alpha=0.6))
-
-                ax[1].plot(x_vals, y_vals, label="f(x)", color="blue")
-                ax[1].set_xlim(a, b)
-                ax[1].set_ylim(0, np.max(y_vals) + 1)
-                ax[1].set_title(f"Aproximação com {n} retângulos")
-                ax[1].set_xlabel("x")
-                ax[1].set_ylabel("f(x)")
-                ax[1].grid(True)
-                ax[1].legend()
-
-                plt.tight_layout()
-                return fig
-
-            def approximate_integral(func, a, b, n):
-                if n == 0:
-                    return 0
-                dx = (b - a) / n
-                x_mids = np.linspace(a + dx/2, b - dx/2, n)
-                y_mids = func(x_mids)
-                return np.sum(y_mids * dx)
-
-            fig = plot_function_and_rectangles(func, a, b, n)
-            st.pyplot(fig)
-
-            area_aproximada = approximate_integral(func, a, b, n)
-            st.success(f"A área aproximada sob a curva é: {area_aproximada:.4f}")
-
-            integral_exata = integrate(func_sympy, (x, a, b))
-            st.info(f"O valor exato da integral é: {integral_exata.evalf()}")
-
-            if isinstance(integral_exata, Rational):
-                st.info(f"Forma fracionária da integral: {integral_exata}")
-
-        if st.button("Mostrar Solução Teórica"):
-            st.subheader("📄 Explicação Passo a Passo")
-            st.write("**Passo 1: Definição da Integral**")
-            st.latex(r"\int_a^b f(x) \, dx")
-
-            st.write("**Passo 2: Integral Indefinida**")
-            integral_indef = integrate(func_sympy, x)
-            st.latex(r"\int f(x) \, dx = " + str(integral_indef))
-
-            st.write("**Passo 3: Aplicação dos Limites**")
-            F_b = integral_indef.subs(x, b)
-            F_a = integral_indef.subs(x, a)
-            st.latex(r"F(b) = " + str(F_b))
-            st.latex(r"F(a) = " + str(F_a))
-
-            st.write("**Passo 4: Cálculo da Área**")
-            area_exata = F_b - F_a
-            st.latex(r"\text{Área} = F(b) - F(a) = " + str(area_exata))
+        - **Área Colorida:** O valor exato da integral.
+        - **Formas Laranjas:** A aproximação da área usando o método escolhido.
+        
+        **Observe:**
+        1.  Ao **aumentar o número de subdivisões (n)**, a soma das áreas laranjas se aproxima cada vez mais da área colorida.
+        2.  Dependendo da função e do método, a aproximação pode ser uma **subestimação** ou uma **superestimação**.
+        """)
 
     except Exception as e:
         st.error(f"Erro ao processar a função: {str(e)}")
 
-
-#C1 - LIMITES================================================================================================
-
+# C1 - LIMITES (VERSÃO CORRIGIDA E MAIS INTUITIVA) ===================================================================
 elif pagina == "limites":
-    import sympy as sp
+    import math # Importa a biblioteca de matemática para a comparação de floats
 
-    st.subheader("📏 Cálculo de Limites")
+    st.subheader("📏 Visualizando o Conceito de Limite")
 
-    func_str = st.text_input("Digite a função f(x):", "(1 - cos(x))/(2*sin(x)**2)")
+    # Lê o valor do limite do eixo a partir do estado da sessão
+    limite_eixo_global = st.session_state.limite_eixo
 
+    # --- Entradas do Usuário ---
+    func_str = st.text_input("Digite a função f(x):", "sin(x)/x")
+    
     try:
+        # --- Cálculos com Sympy ---
         x = sp.symbols('x')
         f_expr = sp.sympify(func_str)
+        f_numeric = sp.lambdify(x, f_expr, modules=['numpy', 'math'])
 
-        limite_tipo = st.selectbox("Escolha o tipo de limite:", ["Limite Finito", "Limite no Infinito"])
+        limite_tipo = st.selectbox("Escolha o tipo de limite:", ["Limite em um Ponto", "Limite no Infinito"])
 
-        if limite_tipo == "Limite Finito":
-            x0 = st.slider("Escolha o ponto x₀:", -5.0, 5.0, 0.0, step=0.1)
-
+        # --- LÓGICA PARA LIMITE EM UM PONTO ---
+        if limite_tipo == "Limite em um Ponto":
+            x0 = st.number_input("Ponto de análise (onde x tende):", 
+                                   min_value=float(-limite_eixo_global), 
+                                   max_value=float(limite_eixo_global), 
+                                   value=0.0)
+            
             try:
-                limite = sp.limit(f_expr, x, x0)
-                st.success(f"O limite de $f(x)$ quando $x \\to {x0}$ é:")
-                st.latex(f"\\lim_{{x \\to {x0}}} f(x) = {limite}")
+                lim_dir = sp.limit(f_expr, x, x0, dir='+')
+                lim_esq = sp.limit(f_expr, x, x0, dir='-')
+                limite_val = sp.limit(f_expr, x, x0)
+                
+                st.markdown("---")
+                col1, col2, col3 = st.columns(3)
+                col1.latex(fr"\lim_{{x \to {x0}^-}} f(x) = {latex(lim_esq)}")
+                col2.latex(fr"\lim_{{x \to {x0}^+}} f(x) = {latex(lim_dir)}")
+
+                # CORREÇÃO: Usar math.isclose para comparar floats de forma segura
+                # Isso evita erros de arredondamento
+                if lim_dir.is_finite and lim_esq.is_finite and math.isclose(float(lim_dir), float(lim_esq)):
+                    col3.latex(fr"\lim_{{x \to {x0}}} f(x) = {latex(limite_val)}")
+                else:
+                    col3.error(r"\text{Limite não existe ou diverge}")
+
             except Exception as e:
-                st.error(f"Erro ao calcular o limite: {e}")
+                st.error(f"Não foi possível calcular o limite: {e}")
                 st.stop()
+            
+            st.markdown("---")
+            # O valor inicial do delta foi reduzido para uma visualização mais próxima
+            delta = st.slider("Proximidade (δ):", min_value=0.01, max_value=3.0, value=0.5, step=0.01)
 
-            # Gráfico
-            x_vals = np.linspace(-5, 5, 400)
-            y_vals = []
+            # --- Gráfico ---
+            fig, ax = plt.subplots(figsize=(8, 8))
+            
+            x_graph = np.linspace(-limite_eixo_global, limite_eixo_global, 1000)
+            y_graph = np.array([f_numeric(val) for val in x_graph])
+            ax.plot(x_graph, y_graph, label="f(x)", color="blue", linewidth=2, zorder=2)
 
-            for val in x_vals:
-                try:
-                    y = f_expr.subs(x, val)
-                    if y == sp.oo or y == -sp.oo or np.isnan(float(y)):
-                        y_vals.append(np.nan)
+            # --- Elementos Visuais da Aproximação ---
+            x_esq_aprox = x0 - delta
+            x_dir_aprox = x0 + delta
+            y_esq_aprox = f_numeric(x_esq_aprox)
+            y_dir_aprox = f_numeric(x_dir_aprox)
+
+            ax.scatter([x_esq_aprox, x_dir_aprox], [y_esq_aprox, y_dir_aprox], color='purple', s=80, zorder=5, label=f'Pontos em x₀ ± δ')
+            ax.axvline(x0, color='red', linestyle='--', label=f'Análise em x={x0}')
+
+            if limite_val.is_finite:
+                L = float(limite_val)
+                ax.axhline(L, color='green', linestyle='--', label=f'Limite L={L:.3f}', zorder=1)
+                
+                ax.plot([x_esq_aprox, x_esq_aprox], [y_esq_aprox, L], color='orange', linestyle='--', lw=2, label='Distância |f(x) - L|')
+                ax.plot([x_dir_aprox, x_dir_aprox], [y_dir_aprox, L], color='orange', linestyle='--', lw=2)
+
+                with np.errstate(invalid='ignore'):
+                    if not np.isfinite(f_numeric(x0)):
+                        ax.scatter(x0, L, facecolors='none', edgecolors='red', s=150, zorder=7, linewidth=2, label=f'f({x0}) é indefinido')
                     else:
-                        y_vals.append(float(y))
-                except:
-                    y_vals.append(np.nan)
+                        ax.scatter(x0, L, color='green', s=100, zorder=6, edgecolors='black')
 
-            fig, ax = plt.subplots()
-            ax.plot(x_vals, y_vals, label="f(x)", color='blue')
-            ax.axhline(0, color='black', linewidth=0.5)
-            ax.axvline(0, color='black', linewidth=0.5)
-
-            # Destacar o ponto de limite
-            try:
-                limite_y = float(f_expr.subs(x, x0))
-                ax.scatter([x0], [limite_y], color='red', zorder=5, label=f'Limite em x = {x0}')
-                ax.plot([x0, x0], [0, limite_y], color='red', linestyle='--')
-                ax.plot([0, x0], [limite_y, limite_y], color='green', linestyle='--')
-            except:
-                pass
-
+            # Configurações do gráfico
+            ax.axhline(0, color='black', linewidth=0.8)
+            ax.grid(True, which='both', linestyle=':', linewidth=0.5)
             ax.set_xlabel("x")
-            ax.set_ylabel("f(x)")
-            ax.legend()
-            ax.grid(True)
+            ax.set_ylabel("y")
+            ax.set_title(f"Aproximação do Limite de f(x) quando x → {x0}")
+            ax.set_xlim(-limite_eixo_global, limite_eixo_global)
+            ax.set_ylim(-limite_eixo_global, limite_eixo_global)
+            ax.set_aspect('equal', adjustable='box')
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys(), loc='best')
             st.pyplot(fig)
 
+            st.markdown("### Valores da Aproximação")
+            col_aprox1, col_aprox2 = st.columns(2)
+            col_aprox1.metric(label=f"Valor à esquerda f({x_esq_aprox:.2f})", value=f"{y_esq_aprox:.4f}")
+            col_aprox2.metric(label=f"Valor à direita f({x_dir_aprox:.2f})", value=f"{y_dir_aprox:.4f}")
+            
+            # Guia didático atualizado
+            st.markdown("### Como interpretar o gráfico?")
+            st.info("""
+            **Objetivo:** Use o slider **Proximidade (δ)** para aproximar os **pontos roxos** da **linha vermelha**.
+
+            - O limite existe se, ao fazer isso, o comprimento das **linhas laranjas** diminuir e tender a zero.
+            - As linhas laranjas representam a distância vertical dos pontos de aproximação até o valor do limite (a linha verde).
+            """)
+
+        # --- LÓGICA PARA LIMITE NO INFINITO ---
         elif limite_tipo == "Limite no Infinito":
             infinito_tipo = st.selectbox("Escolha o infinito:", ["+∞", "-∞"])
-
+            inf_symbol = oo if infinito_tipo == "+∞" else -oo
+            
             try:
-                if infinito_tipo == "+∞":
-                    limite = sp.limit(f_expr, x, sp.oo)
-                else:
-                    limite = sp.limit(f_expr, x, -sp.oo)
-
-                st.success(f"O limite de $f(x)$ quando $x \\to {infinito_tipo}$ é:")
-                st.latex(f"\\lim_{{x \\to {infinito_tipo}}} f(x) = {limite}")
+                limite_val = limit(f_expr, x, inf_symbol)
+                st.markdown(fr"$$ \text{{O limite de }} f(x) \text{{ quando }} x \to {latex(inf_symbol)} \text{{ é: }} {latex(limite_val)} $$")
             except Exception as e:
                 st.error(f"Erro ao calcular o limite: {e}")
                 st.stop()
+            
+            x_graph_inf = np.linspace(-500, 500, 2000) 
+            y_graph_inf = np.array([f_numeric(val) for val in x_graph_inf])
+            
+            fig, ax = plt.subplots(figsize=(10,6))
+            ax.plot(x_graph_inf, y_graph_inf, label="f(x)", color='blue')
 
-            # Gráfico
-            x_vals = np.linspace(-5, 5, 400)
-            y_vals = []
+            if limite_val.is_finite:
+                L = float(limite_val)
+                ax.axhline(y=L, color='green', linestyle='dashed', label=f'Assíntota Horizontal y = {L:.2f}')
+                ax.set_ylim(L - limite_eixo_global, L + limite_eixo_global)
 
-            for val in x_vals:
-                try:
-                    y = f_expr.subs(x, val)
-                    if y == sp.oo or y == -sp.oo or np.isnan(float(y)):
-                        y_vals.append(np.nan)
-                    else:
-                        y_vals.append(float(y))
-                except:
-                    y_vals.append(np.nan)
-
-            fig, ax = plt.subplots()
-            ax.plot(x_vals, y_vals, label="f(x)", color='blue')
-            ax.axhline(0, color='black', linewidth=0.5)
-            ax.axvline(0, color='black', linewidth=0.5)
-
-            # Linha horizontal para o limite
-            if limite != sp.oo and limite != -sp.oo:
-                ax.axhline(y=float(limite), color='green', linestyle='dashed', label=f'Limite: {limite}')
-
+            ax.axhline(0, color='black', linewidth=0.8)
+            ax.grid(True, which='both', linestyle=':', linewidth=0.5)
             ax.set_xlabel("x")
-            ax.set_ylabel("f(x)")
+            ax.set_ylabel("y")
+            ax.set_title(f"Comportamento de f(x) quando x → {latex(inf_symbol)}")
             ax.legend()
-            ax.grid(True)
             st.pyplot(fig)
 
     except Exception as e:
         st.error(f"Erro ao interpretar a função: {str(e)}")
-
 
 
 ################################## CALCULO 2 ##############################################################
@@ -406,19 +747,19 @@ elif pagina == "limites":
 #C2 - TAYLOR===============================================================================================
 elif pagina == "taylor":
     st.subheader("📊 Séries de Taylor")
-    st.info("(O conteúdo da ferramenta será carregado aqui)")
+    st.info("(EM BREVE)")
 
 
 #C2 - INTEGRAL DUPLA=======================================================================================
 elif pagina == "integrais_duplas":
     st.subheader("🔁 Integrais Duplas")
-    st.info("(O conteúdo da ferramenta será carregado aqui)")
+    st.info("(EM BREVE)")
 
 
 #C2 - EQUAÇÕES DIFERENCIAIS==================================================================================
 elif pagina == "equacoes_diferenciais":
     st.subheader("🌀 Equações Diferenciais")
-    st.info("(O conteúdo da ferramenta será carregado aqui)")
+    st.info("(EM BREVE)")
 
 
 
