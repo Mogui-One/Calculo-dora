@@ -112,253 +112,57 @@ with st.sidebar:
 # CONTEÚDO DAS PÁGINAS
 # ==================================================================================================
 pagina = st.session_state.pagina_atual
-
-# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL PARA DEPLOY) =================================================
+# PÁGINA HOME (VERSÃO EM PURO PYTHON/STREAMLIT) =================================================
 if pagina == "home":
 
-    st.markdown("""
-        <style>
-            /* Força o container principal do Streamlit a ocupar a largura total */
-            .main .block-container {
-                max-width: 100% !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            /* Força o iframe a ocupar a tela inteira, independentemente do container */
-            iframe {
-                width: 100vw; /* 100% da largura da tela */
-                min-height: 100vh; /* 100% da altura da tela */
-                border: none;
-                /* Truque para centralizar o iframe que ocupa a largura toda */
-                margin-left: calc(-50vw + 50%);
-            }
-        </style>
-        """, unsafe_allow_html=True)
+    st.subheader("🏠 Bem-vindo ao Explorador de Cálculo!")
+    st.markdown("---")
+    st.info("Sua plataforma interativa para explorar o universo do Cálculo. Navegue pelos tópicos no menu lateral para começar.")
 
-    # Determina as classes e cores com base no tema selecionado no estado da sessão
-    theme_mode = st.session_state.get('theme', 'Escuro')
-    theme_class = "light-mode" if theme_mode == 'Claro' else ''
-    particle_color_js = 'rgba(0, 0, 0, 0.08)' if theme_mode == 'Claro' else 'rgba(255, 255, 255, 0.1)'
+    st.markdown("<br>", unsafe_allow_html=True) # Adiciona um pequeno espaço
 
-    # O f-string é usado para injetar a classe de tema e a cor da partícula no HTML
-    html_code = f"""
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Explorador de Cálculo - Início</title>
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    # Cria três colunas para organizar os cartões de conteúdo
+    col1, col2, col3 = st.columns(3, gap="large")
 
-            :root {{
-                --bg-color: #121212;
-                --text-color: #e0e0e0;
-                --subtle-text-color: #a0a0a0;
-                --header-color: #ffffff;
-                --card-bg: rgba(255, 255, 255, 0.05);
-                --card-border: rgba(255, 255, 255, 0.1);
-                --card-shadow: rgba(0, 0, 0, 0.4);
-                --card-list-border: rgba(255, 255, 255, 0.08);
-                --card-title-color: #4dabf7;
-                --footer-color: #666;
-            }}
+    with col1:
+        # Card de Cálculo 1
+        with st.container(border=True):
+            st.markdown("### 📘 Cálculo 1")
+            st.markdown("""
+            - ✏️ Derivadas
+            - 📐 Integrais
+            - 📏 Limites
+            """)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.success("Módulos interativos disponíveis.")
 
-            .light-mode {{
-                --bg-color: #f0f2f5;
-                --text-color: #1c1e21;
-                --subtle-text-color: #606770;
-                --header-color: #000000;
-                --card-bg: rgba(255, 255, 255, 0.8);
-                --card-border: rgba(0, 0, 0, 0.1);
-                --card-shadow: rgba(0, 0, 0, 0.1);
-                --card-list-border: rgba(0, 0, 0, 0.1);
-                --card-title-color: #1877f2;
-                --footer-color: #888;
-            }}
 
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    with col2:
+        # Card de Cálculo 2
+        with st.container(border=True):
+            st.markdown("### 📙 Cálculo 2")
+            st.markdown("""
+            - 📊 Séries de Taylor
+            - 🔁 Integrais Duplas
+            - 🌀 Equações Diferenciais
+            """)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.warning("EM BREVE") # Adiciona o aviso "EM BREVE"
 
-            body {{
-                font-family: 'Poppins', sans-serif;
-                background-color: var(--bg-color);
-                color: var(--text-color);
-                overflow: hidden;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                text-align: center;
-            }}
-
-            #background-canvas {{
-                position: fixed; top: 0; left: 0;
-                width: 100%; height: 100%; z-index: -1;
-            }}
-
-            .main-container {{
-                width: 100%;
-                padding: 40px 5%;
-                z-index: 1; display: flex; flex-direction: column;
-                align-items: center; gap: 40px;
-            }}
-
-            header {{ margin-bottom: 20px; }}
-
-            /* Animação de digitação */
-            .typing-title {{
-                font-size: 3.5rem;
-                font-weight: 700;
-                color: var(--header-color);
-                text-shadow: 0 0 15px rgba(100, 100, 255, 0.3);
-                overflow: hidden;
-                border-right: .12em solid var(--card-title-color);
-                white-space: nowrap;
-                margin: 0 auto;
-                letter-spacing: .1em;
-                animation: typing 3s steps(20, end), blink-caret .75s step-end infinite;
-            }}
-
-            @keyframes typing {{
-              from {{ width: 0 }}
-              to {{ width: 100% }}
-            }}
-
-            @keyframes blink-caret {{
-              from, to {{ border-color: transparent }}
-              50% {{ border-color: var(--card-title-color); }}
-            }}
-            
-            header p {{
-                font-size: 1.2rem; color: var(--subtle-text-color); margin-top: 20px; max-width: 600px;
-            }}
-            
-            .cards-container {{
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 25px; width: 100%;
-            }}
-
-            .card {{
-                background: var(--card-bg);
-                backdrop-filter: blur(10px);
-                border: 1px solid var(--card-border);
-                border-radius: 15px; padding: 25px;
-                transition: transform 0.3s ease, box-shadow 0.3s ease;
-            }}
-
-            .card:hover {{
-                transform: translateY(-10px);
-                box-shadow: 0 10px 30px var(--card-shadow);
-            }}
-
-            .card h3 {{
-                font-size: 1.5rem; margin-bottom: 15px; color: var(--card-title-color);
-            }}
-            
-            .card ul {{
-                list-style: none; text-align: left; padding-left: 0;
-            }}
-
-            .card ul li {{
-                padding: 8px 0; border-bottom: 1px solid var(--card-list-border);
-            }}
-
-            .card ul li:last-child {{ border-bottom: none; }}
-            
-            footer {{
-                margin-top: 30px; color: var(--footer-color); font-size: 0.9rem;
-            }}
-        </style>
-    </head>
-    <body class="{theme_class}">
-        <canvas id="background-canvas"></canvas>
-
-        <div class="main-container">
-            <header>
-                <h1 class="typing-title">🧠 Cálculo (Dora)</h1>
-                <p>Sua plataforma interativa para explorar o universo do Cálculo. Navegue pelos tópicos no menu lateral.</p>
-            </header>
-
-            <div class="cards-container">
-                <div class="card">
-                    <h3>📘 Cálculo 1</h3>
-                    <ul><li>✏️ Derivadas</li><li>📐 Integrais</li><li>📏 Limites</li></ul>
-                </div>
-                <div class="card">
-                    <h3>📙 Cálculo 2 (EM BREVE)</h3>
-                    <ul><li>📊 Séries de Taylor</li><li>🔁 Integrais Duplas</li><li>🌀 Equações Diferenciais</li></ul>
-                </div>
-                <div class="card">
-                    <h3>📗 Cálculo Numérico</h3>
-                    <ul><li>🔍 Métodos de Raízes</li><li>⚙️ Interpolação</li><li>📈 Ajuste de Curvas</li></ul>
-                </div>
-            </div>
-
-            <footer>
-                <p>🚀 Projeto desenvolvido por Lucas Matias.</p>
-            </footer>
-        </div>
-
-        <script>
-            const canvas = document.getElementById('background-canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-
-            const symbols = ['∫', '∂', '∑', '∞', 'α', 'β', 'π', 'lim', '√', 'ƒ(x)'];
-            const particles = [];
-            const numberOfParticles = 40;
-
-            class Particle {{
-                constructor() {{
-                    this.x = Math.random() * canvas.width;
-                    this.y = Math.random() * canvas.height;
-                    this.size = Math.random() * 15 + 10;
-                    this.speedX = Math.random() * 1 - 0.5;
-                    this.speedY = Math.random() * 1 - 0.5;
-                    this.symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                    this.color = '{particle_color_js}';
-                }}
-                update() {{
-                    this.x += this.speedX; this.y += this.speedY;
-                    if (this.x > canvas.width + 20) this.x = -20;
-                    if (this.x < -20) this.x = canvas.width + 20;
-                    if (this.y > canvas.height + 20) this.y = -20;
-                    if (this.y < -20) this.y = canvas.height + 20;
-                }}
-                draw() {{
-                    ctx.fillStyle = this.color;
-                    ctx.font = this.size + 'px Poppins';
-                    ctx.fillText(this.symbol, this.x, this.y);
-                }}
-            }}
-
-            function init() {{
-                particles.length = 0;
-                for (let i = 0; i < numberOfParticles; i++) {{ particles.push(new Particle()); }}
-            }}
-
-            function animate() {{
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                for (let i = 0; i < particles.length; i++) {{ particles[i].update(); particles[i].draw(); }}
-                requestAnimationFrame(animate);
-            }}
-
-            window.addEventListener('resize', () => {{
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                init();
-            }});
-            
-            init();
-            animate();
-        </script>
-    </body>
-    </html>
-    """
+    with col3:
+        # Card de Cálculo Numérico
+        with st.container(border=True):
+            st.markdown("### 📗 Cálculo Numérico")
+            st.markdown("""
+            - 🔍 Métodos de Raízes
+            - ⚙️ Interpolação
+            - 📈 Ajuste de Curvas
+            """)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.success("Módulos interativos disponíveis.")
     
-    st.components.v1.html(html_code, scrolling=False)
+    st.markdown("<br><br>", unsafe_allow_html=True) # Adiciona um espaço antes do rodapé
+    st.caption("🚀 Projeto desenvolvido por Lucas Matias.")
 
 
 # EXEMPLO - BISSEÇÃO =================================================================================
