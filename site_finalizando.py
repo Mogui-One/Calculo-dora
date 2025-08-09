@@ -113,8 +113,21 @@ with st.sidebar:
 # ==================================================================================================
 pagina = st.session_state.pagina_atual
 
-# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO) =================================================
+# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL) =================================================
 if pagina == "home":
+
+    # INJEÇÃO DE CSS PARA FORÇAR O LAYOUT WIDE APENAS NESTA PÁGINA
+    # Este é o truque que resolve o problema da coluna estreita.
+    st.markdown("""
+        <style>
+            /* Target the main block container Streamlit uses */
+            [data-testid="stAppViewContainer"] > .main > div > [data-testid="block-container"] {
+                max-width: 100%;
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }
+        </style>
+        """, unsafe_allow_html=True)
 
     # Determina as classes e cores com base no tema selecionado no estado da sessão
     theme_mode = st.session_state.get('theme', 'Escuro')
@@ -178,10 +191,8 @@ if pagina == "home":
             }}
 
             .main-container {{
-                /* ALTERAÇÃO PRINCIPAL AQUI */
-                max-width: 100%; /* Removemos o limite de 900px */
-                width: 100%;     /* Faz o container ocupar todo o espaço disponível */
-                padding: 40px 5%; /* Usamos padding percentual para as laterais */
+                width: 100%;
+                padding: 40px 5%;
                 z-index: 1; display: flex; flex-direction: column;
                 align-items: center; gap: 40px;
             }}
