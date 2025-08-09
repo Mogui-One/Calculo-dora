@@ -113,6 +113,8 @@ with st.sidebar:
 # ==================================================================================================
 pagina = st.session_state.pagina_atual
 # PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL) =================================================
+
+# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL) =================================================
 if pagina == "home":
 
     # INJEÇÃO DE CSS PARA FORÇAR O LAYOUT WIDE APENAS NESTA PÁGINA
@@ -360,6 +362,7 @@ if pagina == "home":
     
     # Renderiza o componente HTML. A altura aqui é menos crítica, pois o CSS está controlando o layout.
     st.components.v1.html(html_code, height=900, scrolling=False)
+
 
 # EXEMPLO - BISSEÇÃO =================================================================================
 elif pagina == "ex_bissecao":
