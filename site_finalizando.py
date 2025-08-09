@@ -112,19 +112,25 @@ with st.sidebar:
 # CONTEÚDO DAS PÁGINAS
 # ==================================================================================================
 pagina = st.session_state.pagina_atual
-
 # PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO FINAL) =================================================
 if pagina == "home":
 
     # INJEÇÃO DE CSS PARA FORÇAR O LAYOUT WIDE APENAS NESTA PÁGINA
-    # Este é o truque que resolve o problema da coluna estreita.
+    # Este CSS é mais "agressivo" e remove as restrições de layout do Streamlit.
     st.markdown("""
         <style>
-            /* Target the main block container Streamlit uses */
-            [data-testid="stAppViewContainer"] > .main > div > [data-testid="block-container"] {
-                max-width: 100%;
-                padding-left: 2rem;
-                padding-right: 2rem;
+            /* Remove o padding do container principal do Streamlit */
+            .main .block-container {
+                padding-top: 0rem;
+                padding-bottom: 0rem;
+                padding-left: 0rem;
+                padding-right: 0rem;
+            }
+            /* Força o iframe a ocupar a tela inteira */
+            iframe {
+                width: 100%;
+                min-height: 95vh; /* Usa a altura da tela como referência */
+                border: none;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -352,8 +358,8 @@ if pagina == "home":
     </html>
     """
     
-    # Renderiza o componente HTML no Streamlit
-    st.components.v1.html(html_code, height=900, scrolling=True)
+    # Renderiza o componente HTML. A altura aqui é menos crítica, pois o CSS está controlando o layout.
+    st.components.v1.html(html_code, height=900, scrolling=False)
 
 # EXEMPLO - BISSEÇÃO =================================================================================
 elif pagina == "ex_bissecao":
