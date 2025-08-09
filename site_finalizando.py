@@ -113,7 +113,7 @@ with st.sidebar:
 # ==================================================================================================
 pagina = st.session_state.pagina_atual
 
-# PÁGINA HOME (VERSÃO COM ANIMAÇÃO E SELETOR DE TEMA) =================================================
+# PÁGINA HOME (VERSÃO COM LAYOUT CORRIGIDO) =================================================
 if pagina == "home":
 
     # Determina as classes e cores com base no tema selecionado no estado da sessão
@@ -178,17 +178,16 @@ if pagina == "home":
             }}
 
             .main-container {{
-                max-width: 900px; width: 90%; padding: 40px 20px;
+                /* ALTERAÇÃO PRINCIPAL AQUI */
+                max-width: 100%; /* Removemos o limite de 900px */
+                width: 100%;     /* Faz o container ocupar todo o espaço disponível */
+                padding: 40px 5%; /* Usamos padding percentual para as laterais */
                 z-index: 1; display: flex; flex-direction: column;
                 align-items: center; gap: 40px;
             }}
 
             header {{ margin-bottom: 20px; }}
 
-            header p {{
-                font-size: 1.2rem; color: var(--subtle-text-color); margin-top: 20px; max-width: 600px;
-            }}
-            
             /* Animação de digitação */
             .typing-title {{
                 font-size: 3.5rem;
@@ -211,6 +210,10 @@ if pagina == "home":
             @keyframes blink-caret {{
               from, to {{ border-color: transparent }}
               50% {{ border-color: var(--card-title-color); }}
+            }}
+            
+            header p {{
+                font-size: 1.2rem; color: var(--subtle-text-color); margin-top: 20px; max-width: 600px;
             }}
             
             .cards-container {{
@@ -256,7 +259,7 @@ if pagina == "home":
 
         <div class="main-container">
             <header>
-                <h1 class="typing-title">🧠 (Dora)</h1>
+                <h1 class="typing-title">🧠 Cálculo (Dora)</h1>
                 <p>Sua plataforma interativa para explorar o universo do Cálculo. Navegue pelos tópicos no menu lateral.</p>
             </header>
 
@@ -266,7 +269,7 @@ if pagina == "home":
                     <ul><li>✏️ Derivadas</li><li>📐 Integrais</li><li>📏 Limites</li></ul>
                 </div>
                 <div class="card">
-                    <h3>📙 Cálculo 2 (EM BREVE)</h3>
+                    <h3>📙 Cálculo 2</h3>
                     <ul><li>📊 Séries de Taylor</li><li>🔁 Integrais Duplas</li><li>🌀 Equações Diferenciais</li></ul>
                 </div>
                 <div class="card">
@@ -298,7 +301,7 @@ if pagina == "home":
                     this.speedX = Math.random() * 1 - 0.5;
                     this.speedY = Math.random() * 1 - 0.5;
                     this.symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                    this.color = '{particle_color_js}'; // A cor é injetada pelo Python
+                    this.color = '{particle_color_js}';
                 }}
                 update() {{
                     this.x += this.speedX; this.y += this.speedY;
@@ -315,7 +318,7 @@ if pagina == "home":
             }}
 
             function init() {{
-                particles.length = 0; // Limpa as partículas antigas ao reiniciar
+                particles.length = 0;
                 for (let i = 0; i < numberOfParticles; i++) {{ particles.push(new Particle()); }}
             }}
 
@@ -328,7 +331,7 @@ if pagina == "home":
             window.addEventListener('resize', () => {{
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                init(); // Reinicia as partículas para se adaptarem ao novo tamanho
+                init();
             }});
             
             init();
